@@ -7,9 +7,19 @@ struct EditRecordView: View {
     @State private var showSaveAlert = false
     @FocusState private var isInputActive: Bool
     
+    // 1. 存储给数据库用的日期 Key (yyyy-MM-dd)
     var currentDateString: String {
         let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN") // 强制中文 Locale
         formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: selectedDate)
+    }
+    
+    // 2. 界面上展示给用户看的中文字符串 (例：2026年08月11日)
+    var chineseDisplayDate: String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN") // 强制中文 Locale
+        formatter.dateFormat = "yyyy年MM月dd日"
         return formatter.string(from: selectedDate)
     }
     
@@ -18,11 +28,18 @@ struct EditRecordView: View {
             VStack(spacing: 0) {
                 Form {
                     Section(header: Text("选择日期")) {
-                        DatePicker("日期", selection: $selectedDate, displayedComponents: .date)
-                            .environment(\.locale, Locale(identifier: "zh_CN"))
-                            .onChange(of: selectedDate) { _ in
-                                loadExistingData()
-                            }
+                        HStack {
+                            Text("当前日期")
+                            Spacer()
+                            // 强制中文显示与中文日历控件
+                            DatePicker("", selection: $selectedDate, displayedComponents: .date)
+                                .labelsHidden()
+                                .environment(\.locale, Locale(identifier: "zh_CN"))
+                                .environment(\.calendar, Calendar(identifier: .gregorian))
+                                .onChange(of: selectedDate) { _ in
+                                    loadExistingData()
+                                }
+                        }
                     }
                     
                     Section(header: Text("点击网格可切换 涨 / 跌")) {
@@ -65,10 +82,9 @@ struct EditRecordView: View {
                     }
                 }
                 
-                // 独立底部的两个实体操作按钮（彻底避免被表单或悬浮层拦截点击）
+                // 底部两个独立高亮实体按钮
                 VStack(spacing: 10) {
                     HStack(spacing: 15) {
-                        // 1. 重置清除按钮
                         Button(action: resetForm) {
                             HStack {
                                 Image(systemName: "trash")
@@ -81,7 +97,6 @@ struct EditRecordView: View {
                             .cornerRadius(10)
                         }
                         
-                        // 2. 保存记录按钮
                         Button(action: saveCurrentData) {
                             HStack {
                                 Image(systemName: "checkmark.circle.fill")
