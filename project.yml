@@ -5,6 +5,8 @@ options:
   deploymentTarget:
     iOS: "16.0"
   createIntermediateGroups: true
+  projectVersion: 56
+  formatVersion: 52
 
 settings:
   base:
