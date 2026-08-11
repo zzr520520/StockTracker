@@ -10,30 +10,34 @@ struct StockFavoritesView: View {
         storage.favoriteStocks.sorted { $0.isPinned && !$1.isPinned }
     }
     
-    // 生成同花顺兼容性最好的 H5 行情详情页 URL
+    // 精准对齐同花顺真实 H5 路径逻辑
     private func getTHSStockURL(code: String) -> String {
-        let cleanCode = code.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanCode = code.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         var formattedCode = cleanCode
         
-        if !cleanCode.hasPrefix("sh") && !cleanCode.hasPrefix("sz") {
-            if cleanCode.hasPrefix("6") || cleanCode.hasPrefix("9") || cleanCode.hasPrefix("688") {
-                formattedCode = "sh" + cleanCode
+        // 自动补全 hs_ 或 sz_ 前缀
+        if !cleanCode.hasPrefix("hs_") && !cleanCode.hasPrefix("sz_") {
+            // 沪市/上证指数：6开头、9开头、688科创板、1A指数等
+            if cleanCode.hasPrefix("6") || cleanCode.hasPrefix("9") || cleanCode.hasPrefix("688") || cleanCode.hasPrefix("1a") {
+                formattedCode = "hs_" + cleanCode
             } else {
-                formattedCode = "sz" + cleanCode
+                formattedCode = "sz_" + cleanCode
             }
         }
-        // 使用同花顺移动版兼容 URL 路由
-        return "https://eq.10jqka.com.cn/frontend/stockpage/index.html?code=\(formattedCode)"
+        
+        // 生成完全正确的链接结构
+        return "https://m.10jqka.com.cn/stockpage/\(formattedCode)/#refCountId=R_554997ea_731&atab=geguNews"
     }
     
     var body: some View {
         NavigationView {
-            VStack {
-                HStack {
+            VStack(spacing: 0) {
+                // 顶部输入栏
+                HStack(spacing: 10) {
                     TextField("代码(如 600519)", text: $newCode)
                         .textFieldStyle(.roundedBorder)
                         .keyboardType(.asciiCapable)
-                        .frame(width: 130)
+                        .frame(width: 140)
                     
                     TextField("股票名称", text: $newName)
                         .textFieldStyle(.roundedBorder)
@@ -47,10 +51,11 @@ struct StockFavoritesView: View {
                 .padding()
                 .background(Color(UIColor.secondarySystemGroupedBackground))
                 
+                // 列表展示区
                 List {
                     ForEach(sortedStocks) { stock in
                         HStack {
-                            VStack(alignment: .leading) {
+                            VStack(alignment: .leading, spacing: 4) {
                                 HStack {
                                     if stock.isPinned {
                                         Image(systemName: "pin.fill")
@@ -67,13 +72,21 @@ struct StockFavoritesView: View {
                             
                             Spacer()
                             
-                            Button("查看行情") {
+                            Button(action: {
                                 selectedStockURL = getTHSStockURL(code: stock.code)
+                            }) {
+                                Text("查看行情")
+                                    .font(.subheadline)
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 6)
+                                    .background(Color.red)
+                                    .cornerRadius(16)
                             }
-                            .buttonStyle(.borderedProminent)
-                            .tint(.red)
-                            .controlSize(.small)
+                            .buttonStyle(PlainButtonStyle()) // 规避单元格高亮干扰
                         }
+                        .padding(.vertical, 4)
                         .swipeActions(edge: .leading) {
                             Button {
                                 togglePin(stock)

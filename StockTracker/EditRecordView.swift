@@ -7,14 +7,6 @@ struct EditRecordView: View {
     @State private var showSaveAlert = false
     @FocusState private var isInputActive: Bool
     
-    // 中文日期格式化器
-    var dateFormatter: DateFormatter {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "zh_CN")
-        formatter.dateFormat = "yyyy年MM月dd日"
-        return formatter
-    }
-    
     var currentDateString: String {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
@@ -23,37 +15,38 @@ struct EditRecordView: View {
     
     var body: some View {
         NavigationView {
-            Form {
-                Section(header: Text("选择日期")) {
-                    DatePicker("日期", selection: $selectedDate, displayedComponents: .date)
-                        .environment(\.locale, Locale(identifier: "zh_CN")) // 强制中文日期控件
-                        .onChange(of: selectedDate) { _ in
-                            loadExistingData()
-                        }
-                }
-                
-                Section(header: Text("点击网格可快速切换 涨 / 跌")) {
-                    ForEach(0..<rows.count, id: \.self) { rowIndex in
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("第 \(rowIndex + 1) 行")
-                                .font(.caption)
-                                .foregroundColor(.gray)
-                            
+            VStack(spacing: 0) {
+                Form {
+                    Section(header: Text("选择日期")) {
+                        DatePicker("日期", selection: $selectedDate, displayedComponents: .date)
+                            .environment(\.locale, Locale(identifier: "zh_CN"))
+                            .onChange(of: selectedDate) { _ in
+                                loadExistingData()
+                            }
+                    }
+                    
+                    Section(header: Text("点击网格可切换 涨 / 跌")) {
+                        ForEach(0..<rows.count, id: \.self) { rowIndex in
                             HStack {
-                                HStack(spacing: 6) {
+                                Text("第 \(rowIndex + 1) 行")
+                                    .font(.caption)
+                                    .foregroundColor(.gray)
+                                    .frame(width: 50, alignment: .leading)
+                                
+                                HStack(spacing: 5) {
                                     ForEach(0..<5, id: \.self) { colIndex in
                                         Button(action: {
                                             isInputActive = false
                                             rows[rowIndex].grid[colIndex] = (rows[rowIndex].grid[colIndex] == .up) ? .down : .up
                                         }) {
                                             Text(rows[rowIndex].grid[colIndex].rawValue)
-                                                .font(.system(size: 13, weight: .bold))
+                                                .font(.system(size: 12, weight: .bold))
                                                 .foregroundColor(.white)
-                                                .frame(maxWidth: .infinity, minHeight: 36)
+                                                .frame(maxWidth: .infinity, minHeight: 32)
                                                 .background(rows[rowIndex].grid[colIndex] == .up ? Color.red : Color.green)
                                                 .cornerRadius(6)
                                         }
-                                        .buttonStyle(BorderlessButtonStyle()) // 防止 Form 表单高亮拦截
+                                        .buttonStyle(PlainButtonStyle())
                                     }
                                 }
                                 
@@ -63,42 +56,50 @@ struct EditRecordView: View {
                                     .keyboardType(.numberPad)
                                     .focused($isInputActive)
                                     .multilineTextAlignment(.center)
-                                    .frame(width: 50, height: 36)
+                                    .frame(width: 45, height: 32)
                                     .background(Color(UIColor.tertiarySystemFill))
                                     .cornerRadius(6)
                             }
+                            .padding(.vertical, 2)
                         }
-                        .padding(.vertical, 4)
                     }
                 }
                 
-                Section {
-                    // 单击直接触发，无需长按
-                    Button(action: saveCurrentData) {
-                        HStack {
-                            Spacer()
-                            Text("保存记录")
-                                .font(.body)
-                                .fontWeight(.bold)
-                                .foregroundColor(.blue)
-                            Spacer()
+                // 独立底部的两个实体操作按钮（彻底避免被表单或悬浮层拦截点击）
+                VStack(spacing: 10) {
+                    HStack(spacing: 15) {
+                        // 1. 重置清除按钮
+                        Button(action: resetForm) {
+                            HStack {
+                                Image(systemName: "trash")
+                                Text("重置清除")
+                            }
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(.red)
+                            .frame(maxWidth: .infinity, minHeight: 45)
+                            .background(Color.red.opacity(0.12))
+                            .cornerRadius(10)
                         }
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(BorderlessButtonStyle())
-                    
-                    Button(action: resetForm) {
-                        HStack {
-                            Spacer()
-                            Text("重置清空")
-                                .font(.body)
-                                .foregroundColor(.red)
-                            Spacer()
+                        
+                        // 2. 保存记录按钮
+                        Button(action: saveCurrentData) {
+                            HStack {
+                                Image(systemName: "checkmark.circle.fill")
+                                Text("保存记录")
+                            }
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity, minHeight: 45)
+                            .background(Color.blue)
+                            .cornerRadius(10)
                         }
-                        .contentShape(Rectangle())
                     }
-                    .buttonStyle(BorderlessButtonStyle())
+                    .padding(.horizontal, 16)
+                    .padding(.top, 10)
+                    .padding(.bottom, 15)
                 }
+                .background(Color(UIColor.systemBackground))
+                .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: -2)
             }
             .navigationTitle("数据录入")
             .onAppear(perform: loadExistingData)
