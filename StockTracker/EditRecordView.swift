@@ -5,16 +5,20 @@ struct EditRecordView: View {
     @State private var selectedDate = Date()
     @State private var rows: [DailyGridRow] = (1...8).map { _ in DailyGridRow() }
     @State private var showSaveAlert = false
-    @FocusState private var isInputActive: Bool // 焦点控制
+    @FocusState private var isInputActive: Bool
     
+    // 中文日期格式化器
     var dateFormatter: DateFormatter {
         let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.dateFormat = "yyyy年MM月dd日"
         return formatter
     }
     
     var currentDateString: String {
-        dateFormatter.string(from: selectedDate)
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: selectedDate)
     }
     
     var body: some View {
@@ -22,6 +26,7 @@ struct EditRecordView: View {
             Form {
                 Section(header: Text("选择日期")) {
                     DatePicker("日期", selection: $selectedDate, displayedComponents: .date)
+                        .environment(\.locale, Locale(identifier: "zh_CN")) // 强制中文日期控件
                         .onChange(of: selectedDate) { _ in
                             loadExistingData()
                         }
@@ -38,6 +43,7 @@ struct EditRecordView: View {
                                 HStack(spacing: 6) {
                                     ForEach(0..<5, id: \.self) { colIndex in
                                         Button(action: {
+                                            isInputActive = false
                                             rows[rowIndex].grid[colIndex] = (rows[rowIndex].grid[colIndex] == .up) ? .down : .up
                                         }) {
                                             Text(rows[rowIndex].grid[colIndex].rawValue)
@@ -47,7 +53,7 @@ struct EditRecordView: View {
                                                 .background(rows[rowIndex].grid[colIndex] == .up ? Color.red : Color.green)
                                                 .cornerRadius(6)
                                         }
-                                        .buttonStyle(.plain)
+                                        .buttonStyle(BorderlessButtonStyle()) // 防止 Form 表单高亮拦截
                                     }
                                 }
                                 
@@ -55,7 +61,7 @@ struct EditRecordView: View {
                                 
                                 TextField("分值", value: $rows[rowIndex].score, format: .number)
                                     .keyboardType(.numberPad)
-                                    .focused($isInputActive) // 绑定键盘焦点
+                                    .focused($isInputActive)
                                     .multilineTextAlignment(.center)
                                     .frame(width: 50, height: 36)
                                     .background(Color(UIColor.tertiarySystemFill))
@@ -67,21 +73,31 @@ struct EditRecordView: View {
                 }
                 
                 Section {
+                    // 单击直接触发，无需长按
                     Button(action: saveCurrentData) {
                         HStack {
                             Spacer()
-                            Text("保存记录").fontWeight(.bold).foregroundColor(.blue)
+                            Text("保存记录")
+                                .font(.body)
+                                .fontWeight(.bold)
+                                .foregroundColor(.blue)
                             Spacer()
                         }
+                        .contentShape(Rectangle())
                     }
+                    .buttonStyle(BorderlessButtonStyle())
                     
                     Button(action: resetForm) {
                         HStack {
                             Spacer()
-                            Text("重置清空").foregroundColor(.red)
+                            Text("重置清空")
+                                .font(.body)
+                                .foregroundColor(.red)
                             Spacer()
                         }
+                        .contentShape(Rectangle())
                     }
+                    .buttonStyle(BorderlessButtonStyle())
                 }
             }
             .navigationTitle("数据录入")
@@ -89,7 +105,6 @@ struct EditRecordView: View {
             .alert("保存成功", isPresented: $showSaveAlert) {
                 Button("确定", role: .cancel) { }
             }
-            // 修复 1：添加顶部键盘工具栏，点击"完成"关闭键盘
             .toolbar {
                 ToolbarItemGroup(placement: .keyboard) {
                     Spacer()
@@ -98,10 +113,6 @@ struct EditRecordView: View {
                     }
                     .fontWeight(.bold)
                 }
-            }
-            // 修复 2：点击非输入区域自动收起键盘
-            .onTapGesture {
-                isInputActive = false
             }
             .withFloatingTHSButton()
         }

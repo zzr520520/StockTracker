@@ -10,12 +10,11 @@ struct StockFavoritesView: View {
         storage.favoriteStocks.sorted { $0.isPinned && !$1.isPinned }
     }
     
-    // 关键修正：自动判断沪深股票代码格式
+    // 生成同花顺兼容性最好的 H5 行情详情页 URL
     private func getTHSStockURL(code: String) -> String {
         let cleanCode = code.trimmingCharacters(in: .whitespacesAndNewlines)
         var formattedCode = cleanCode
         
-        // 如果用户没有手输 sh/sz 标识，自动判断
         if !cleanCode.hasPrefix("sh") && !cleanCode.hasPrefix("sz") {
             if cleanCode.hasPrefix("6") || cleanCode.hasPrefix("9") || cleanCode.hasPrefix("688") {
                 formattedCode = "sh" + cleanCode
@@ -23,8 +22,8 @@ struct StockFavoritesView: View {
                 formattedCode = "sz" + cleanCode
             }
         }
-        // 拼接同花顺移动端 H5 真正有效的详情页地址
-        return "https://m.10jqka.com.cn/stockpage/\(formattedCode)/"
+        // 使用同花顺移动版兼容 URL 路由
+        return "https://eq.10jqka.com.cn/frontend/stockpage/index.html?code=\(formattedCode)"
     }
     
     var body: some View {
