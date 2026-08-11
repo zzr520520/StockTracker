@@ -3,23 +3,16 @@ import SwiftUI
 struct EditRecordView: View {
     @ObservedObject var storage = StorageManager.shared
     @State private var selectedDate = Date()
+    @State private var selectedStockCode: String = ""
+    @State private var remarkText: String = ""
     @State private var rows: [DailyGridRow] = (1...8).map { _ in DailyGridRow() }
     @State private var showSaveAlert = false
     @FocusState private var isInputActive: Bool
     
-    // 1. 存储给数据库用的日期 Key (yyyy-MM-dd)
     var currentDateString: String {
         let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "zh_CN") // 强制中文 Locale
+        formatter.locale = Locale(identifier: "zh_Hans_CN")
         formatter.dateFormat = "yyyy-MM-dd"
-        return formatter.string(from: selectedDate)
-    }
-    
-    // 2. 界面上展示给用户看的中文字符串 (例：2026年08月11日)
-    var chineseDisplayDate: String {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "zh_CN") // 强制中文 Locale
-        formatter.dateFormat = "yyyy年MM月dd日"
         return formatter.string(from: selectedDate)
     }
     
@@ -27,19 +20,27 @@ struct EditRecordView: View {
         NavigationView {
             VStack(spacing: 0) {
                 Form {
-                    Section(header: Text("选择日期")) {
-                        HStack {
-                            Text("当前日期")
-                            Spacer()
-                            // 强制中文显示与中文日历控件
-                            DatePicker("", selection: $selectedDate, displayedComponents: .date)
-                                .labelsHidden()
-                                .environment(\.locale, Locale(identifier: "zh_CN"))
-                                .environment(\.calendar, Calendar(identifier: .gregorian))
-                                .onChange(of: selectedDate) { _ in
-                                    loadExistingData()
-                                }
+                    Section(header: Text("基本信息")) {
+                        // 1. 日期选择
+                        DatePicker("日期", selection: $selectedDate, displayedComponents: .date)
+                            .environment(\.locale, Locale(identifier: "zh_Hans_CN"))
+                            .onChange(of: selectedDate) { _ in
+                                loadExistingData()
+                            }
+                        
+                        // 2. 选择关联股票（自动同步自选股列表）
+                        Picker("关联个股/大盘", selection: $selectedStockCode) {
+                            Text("无 (通用/大盘)").tag("")
+                            ForEach(storage.favoriteStocks) { stock in
+                                Text("\(stock.name) (\(stock.code))").tag(stock.code)
+                            }
                         }
+                    }
+                    
+                    // 3. 备注功能
+                    Section(header: Text("每日备注记录")) {
+                        TextField("输入今日操作笔记、看盘心得等备注...", text: $remarkText)
+                            .focused($isInputActive)
                     }
                     
                     Section(header: Text("点击网格可切换 涨 / 跌")) {
@@ -70,10 +71,10 @@ struct EditRecordView: View {
                                 Spacer()
                                 
                                 TextField("分值", value: $rows[rowIndex].score, format: .number)
-                                    .keyboardType(.numberPad)
+                                    .keyboardType(.decimalPad)
                                     .focused($isInputActive)
                                     .multilineTextAlignment(.center)
-                                    .frame(width: 45, height: 32)
+                                    .frame(width: 55, height: 32)
                                     .background(Color(UIColor.tertiarySystemFill))
                                     .cornerRadius(6)
                             }
@@ -82,7 +83,7 @@ struct EditRecordView: View {
                     }
                 }
                 
-                // 底部两个独立高亮实体按钮
+                // 底部操作按钮
                 VStack(spacing: 10) {
                     HStack(spacing: 15) {
                         Button(action: resetForm) {
@@ -117,6 +118,7 @@ struct EditRecordView: View {
                 .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: -2)
             }
             .navigationTitle("数据录入")
+            .environment(\.locale, Locale(identifier: "zh_Hans_CN"))
             .onAppear(perform: loadExistingData)
             .alert("保存成功", isPresented: $showSaveAlert) {
                 Button("确定", role: .cancel) { }
@@ -137,14 +139,25 @@ struct EditRecordView: View {
     private func loadExistingData() {
         if let existing = storage.records[currentDateString] {
             self.rows = existing.rows
+            self.selectedStockCode = existing.stockCode
+            self.remarkText = existing.remark
         } else {
             self.rows = (1...8).map { _ in DailyGridRow() }
+            self.selectedStockCode = ""
+            self.remarkText = ""
         }
     }
     
     private func saveCurrentData() {
         isInputActive = false
-        let record = DailyRecord(dateString: currentDateString, rows: rows)
+        let stockName = storage.favoriteStocks.first(where: { $0.code == selectedStockCode })?.name ?? ""
+        let record = DailyRecord(
+            dateString: currentDateString,
+            stockCode: selectedStockCode,
+            stockName: stockName,
+            remark: remarkText,
+            rows: rows
+        )
         storage.saveRecord(record)
         showSaveAlert = true
     }
@@ -152,5 +165,7 @@ struct EditRecordView: View {
     private func resetForm() {
         isInputActive = false
         self.rows = (1...8).map { _ in DailyGridRow() }
+        self.selectedStockCode = ""
+        self.remarkText = ""
     }
 }

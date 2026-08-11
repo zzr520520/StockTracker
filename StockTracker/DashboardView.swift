@@ -4,14 +4,11 @@ struct DashboardView: View {
     @ObservedObject var storage = StorageManager.shared
     @State private var selectedDate = Date()
     
-    var dateFormatter: DateFormatter {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        return formatter
-    }
-    
     var currentDateString: String {
-        dateFormatter.string(from: selectedDate)
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_Hans_CN")
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: selectedDate)
     }
     
     var currentRecord: DailyRecord {
@@ -21,39 +18,80 @@ struct DashboardView: View {
         )
     }
     
+    private func formatScore(_ score: Double) -> String {
+        if score.truncatingRemainder(dividingBy: 1) == 0 {
+            return String(format: "%.0f", score)
+        } else {
+            return String(format: "%.2f", score)
+        }
+    }
+    
     var body: some View {
         NavigationView {
             VStack(spacing: 0) {
-                // 1. 顶部日期选择器
-                HStack {
-                    DatePicker("选择日期", selection: $selectedDate, displayedComponents: .date)
-                        .datePickerStyle(.compact)
-                        .labelsHidden()
-                    Spacer()
-                    Text(currentDateString)
-                        .font(.headline)
-                        .foregroundColor(.secondary)
+                // 1. 顶部日期 & 关联个股栏
+                VStack(spacing: 6) {
+                    HStack {
+                        DatePicker("选择日期", selection: $selectedDate, displayedComponents: .date)
+                            .datePickerStyle(.compact)
+                            .labelsHidden()
+                            .environment(\.locale, Locale(identifier: "zh_Hans_CN"))
+                        
+                        Spacer()
+                        
+                        // 显示绑定个股
+                        if !currentRecord.stockCode.isEmpty {
+                            HStack(spacing: 4) {
+                                Image(systemName: "chart.line.uptrend.xyaxis")
+                                    .font(.caption)
+                                Text("\(currentRecord.stockName)(\(currentRecord.stockCode))")
+                                    .font(.subheadline)
+                                    .fontWeight(.bold)
+                            }
+                            .foregroundColor(.blue)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 4)
+                            .background(Color.blue.opacity(0.1))
+                            .cornerRadius(8)
+                        } else {
+                            Text("全局/大盘")
+                                .font(.caption)
+                                .foregroundColor(.gray)
+                        }
+                    }
+                    
+                    // 显示备注卡片
+                    if !currentRecord.remark.isEmpty {
+                        HStack {
+                            Text("备注：\(currentRecord.remark)")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .lineLimit(2)
+                            Spacer()
+                        }
+                        .padding(8)
+                        .background(Color(UIColor.tertiarySystemFill))
+                        .cornerRadius(6)
+                    }
                 }
                 .padding()
                 .background(Color(UIColor.systemGroupedBackground))
                 
-                // 2. 核心网格看板
+                // 2. 网格看板列表
                 List {
                     Section(header: HStack {
                         Text("行号").frame(width: 35, alignment: .leading)
                         Text("5列涨跌网格").frame(maxWidth: .infinity)
-                        Text("分值").frame(width: 45, alignment: .trailing)
+                        Text("分值").frame(width: 50, alignment: .trailing)
                     }.font(.caption).foregroundColor(.gray)) {
                         ForEach(Array(currentRecord.rows.enumerated()), id: \.offset) { index, row in
                             HStack {
-                                // 行号
                                 Text("\(index + 1)")
                                     .font(.system(.body, design: .monospaced))
                                     .fontWeight(.bold)
                                     .foregroundColor(.secondary)
                                     .frame(width: 35, alignment: .leading)
                                 
-                                // 5列网格
                                 HStack(spacing: 6) {
                                     ForEach(0..<5, id: \.self) { colIndex in
                                         let status = colIndex < row.grid.count ? row.grid[colIndex] : .up
@@ -66,11 +104,10 @@ struct DashboardView: View {
                                     }
                                 }
                                 
-                                // 分值
-                                Text("\(row.score)")
+                                Text(formatScore(row.score))
                                     .font(.system(.body, design: .monospaced))
                                     .fontWeight(.semibold)
-                                    .frame(width: 45, alignment: .trailing)
+                                    .frame(width: 50, alignment: .trailing)
                             }
                             .padding(.vertical, 2)
                         }
@@ -101,6 +138,7 @@ struct DashboardView: View {
                 .padding(.bottom, 8)
             }
             .navigationTitle("行情看板")
+            .environment(\.locale, Locale(identifier: "zh_Hans_CN"))
             .withFloatingTHSButton()
         }
     }

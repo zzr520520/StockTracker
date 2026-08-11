@@ -19,11 +19,11 @@ struct HistoryView: View {
     var body: some View {
         NavigationView {
             VStack {
-                // 日历筛选框
                 HStack {
                     Toggle("按日期筛选", isOn: $isFilteringByDate)
                     if isFilteringByDate {
                         DatePicker("", selection: $filterDate, displayedComponents: .date)
+                            .environment(\.locale, Locale(identifier: "zh_Hans_CN"))
                             .labelsHidden()
                     }
                 }
@@ -32,17 +32,31 @@ struct HistoryView: View {
                 
                 List {
                     ForEach(sortedRecords) { record in
-                        VStack(alignment: .leading, spacing: 8) {
+                        VStack(alignment: .leading, spacing: 6) {
                             HStack {
                                 Text(record.dateString)
                                     .font(.headline)
+                                
+                                if !record.stockName.isEmpty {
+                                    Text("[\(record.stockName)]")
+                                        .font(.subheadline)
+                                        .foregroundColor(.blue)
+                                }
+                                
                                 Spacer()
                                 Text("涨: \(record.totalUpCount)  跌: \(record.totalDownCount)")
                                     .font(.subheadline)
                                     .foregroundColor(.secondary)
                             }
                             
-                            // 缩略网格预览 (展示前 3 行)
+                            if !record.remark.isEmpty {
+                                Text("备注：\(record.remark)")
+                                    .font(.caption)
+                                    .foregroundColor(.gray)
+                                    .lineLimit(1)
+                            }
+                            
+                            // 缩略预览
                             VStack(spacing: 3) {
                                 ForEach(record.rows.prefix(3)) { row in
                                     HStack(spacing: 4) {
@@ -50,7 +64,7 @@ struct HistoryView: View {
                                             let st = col < row.grid.count ? row.grid[col] : .up
                                             RoundedRectangle(cornerRadius: 2)
                                                 .fill(st == .up ? Color.red : Color.green)
-                                                .frame(height: 8)
+                                                .frame(height: 6)
                                         }
                                     }
                                 }
@@ -68,6 +82,7 @@ struct HistoryView: View {
                 .listStyle(.plain)
             }
             .navigationTitle("历史记录")
+            .environment(\.locale, Locale(identifier: "zh_Hans_CN"))
             .withFloatingTHSButton()
         }
     }

@@ -6,22 +6,25 @@ enum GridStatus: String, Codable, CaseIterable {
     case down = "跌"
 }
 
-// 每日单行记录 (5列网格 + 分值)
+// 每日单行记录 (5列网格 + 小数分值)
 struct DailyGridRow: Identifiable, Codable {
     var id = UUID()
-    var grid: [GridStatus] // 固定 5 个
-    var score: Int
+    var grid: [GridStatus]
+    var score: Double
     
-    init(grid: [GridStatus] = Array(repeating: .up, count: 5), score: Int = 0) {
+    init(grid: [GridStatus] = Array(repeating: .up, count: 5), score: Double = 0.0) {
         self.grid = grid
         self.score = score
     }
 }
 
-// 每日完整的记录绑定
+// 每日记录（扩展：关联股票 + 备注）
 struct DailyRecord: Identifiable, Codable {
-    var id: String { dateString } // 用 "yyyy-MM-dd" 作为主键
+    var id: String { dateString }
     var dateString: String
+    var stockCode: String = ""  // 关联股票代码，如 600519
+    var stockName: String = ""  // 关联股票名称，如 贵州茅台
+    var remark: String = ""     // 备注信息
     var rows: [DailyGridRow]
     
     var totalUpCount: Int {
