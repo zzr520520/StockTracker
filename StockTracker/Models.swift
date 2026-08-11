@@ -1,12 +1,10 @@
 import Foundation
 
-// 涨跌网格格子状态
 enum GridStatus: String, Codable, CaseIterable {
     case up = "涨"
     case down = "跌"
 }
 
-// 每日单行记录 (5列网格 + 小数分值)
 struct DailyGridRow: Identifiable, Codable {
     var id = UUID()
     var grid: [GridStatus]
@@ -18,12 +16,17 @@ struct DailyGridRow: Identifiable, Codable {
     }
 }
 
-// 每日记录（扩展：关联股票 + 备注）
+// 每日记录模型（复合主键：日期_股票代码）
 struct DailyRecord: Identifiable, Codable {
-    var id: String { dateString }
+    // 复合唯一 ID：例如 "2026-08-11_00700" 或 "2026-08-11_GLOBAL"
+    var id: String { 
+        let code = stockCode.isEmpty ? "GLOBAL" : stockCode
+        return "\(dateString)_\(code)" 
+    }
+    
     var dateString: String
-    var stockCode: String = ""  // 关联股票代码，如 600519
-    var stockName: String = ""  // 关联股票名称，如 贵州茅台
+    var stockCode: String = ""  // 股票代码
+    var stockName: String = ""  // 股票名称
     var remark: String = ""     // 备注信息
     var rows: [DailyGridRow]
     
@@ -44,44 +47,42 @@ struct StockItem: Identifiable, Codable, Equatable {
     var isPinned: Bool = false
 }
 
-// 数据持久化管理类 (本地 JSON 离线存储)
+// 数据持久化管理类
 class StorageManager: ObservableObject {
     static let shared = StorageManager()
     
     @Published var records: [String: DailyRecord] = [:]
     @Published var favoriteStocks: [StockItem] = []
     
-    private let recordsKey = "SavedDailyRecords_v1"
-    private let stocksKey = "SavedFavoriteStocks_v1"
+    private let recordsKey = "SavedDailyRecords_v2"
+    private let stocksKey = "SavedFavoriteStocks_v2"
     
     init() {
         loadData()
         if favoriteStocks.isEmpty {
-            // 预设测试数据
             favoriteStocks = [
-                StockItem(code: "600519", name: "贵州茅台", isPinned: true),
+                StockItem(code: "00700", name: "腾讯控股", isPinned: true),
+                StockItem(code: "600519", name: "贵州茅台", isPinned: false),
                 StockItem(code: "000001", name: "平安银行", isPinned: false)
             ]
             saveStocks()
         }
     }
     
-    // 记录存取
     func saveRecord(_ record: DailyRecord) {
-        records[record.dateString] = record
+        records[record.id] = record
         if let encoded = try? JSONEncoder().encode(records) {
             UserDefaults.standard.set(encoded, forKey: recordsKey)
         }
     }
     
-    func deleteRecord(dateString: String) {
-        records.removeValue(forKey: dateString)
+    func deleteRecord(id: String) {
+        records.removeValue(forKey: id)
         if let encoded = try? JSONEncoder().encode(records) {
             UserDefaults.standard.set(encoded, forKey: recordsKey)
         }
     }
     
-    // 股票自选存取
     func saveStocks() {
         if let encoded = try? JSONEncoder().encode(favoriteStocks) {
             UserDefaults.standard.set(encoded, forKey: stocksKey)

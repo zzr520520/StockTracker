@@ -3,6 +3,7 @@ import SwiftUI
 struct DashboardView: View {
     @ObservedObject var storage = StorageManager.shared
     @State private var selectedDate = Date()
+    @State private var selectedStockCode: String = "" // 当前选中的股票代码，为空代表通用/大盘
     
     var currentDateString: String {
         let formatter = DateFormatter()
@@ -11,9 +12,13 @@ struct DashboardView: View {
         return formatter.string(from: selectedDate)
     }
     
+    // 根据 日期 + 股票代码 获取专属记录
     var currentRecord: DailyRecord {
-        storage.records[currentDateString] ?? DailyRecord(
+        let key = "\(currentDateString)_\(selectedStockCode.isEmpty ? "GLOBAL" : selectedStockCode)"
+        return storage.records[key] ?? DailyRecord(
             dateString: currentDateString,
+            stockCode: selectedStockCode,
+            stockName: storage.favoriteStocks.first(where: { $0.code == selectedStockCode })?.name ?? "",
             rows: (1...8).map { _ in DailyGridRow() }
         )
     }
@@ -29,44 +34,38 @@ struct DashboardView: View {
     var body: some View {
         NavigationView {
             VStack(spacing: 0) {
-                // 1. 顶部日期 & 关联个股栏
-                VStack(spacing: 6) {
+                // 1. 顶部日期与股票切换栏
+                VStack(spacing: 10) {
                     HStack {
-                        DatePicker("选择日期", selection: $selectedDate, displayedComponents: .date)
+                        DatePicker("日期", selection: $selectedDate, displayedComponents: .date)
                             .datePickerStyle(.compact)
                             .labelsHidden()
                             .environment(\.locale, Locale(identifier: "zh_Hans_CN"))
                         
                         Spacer()
                         
-                        // 显示绑定个股
-                        if !currentRecord.stockCode.isEmpty {
-                            HStack(spacing: 4) {
-                                Image(systemName: "chart.line.uptrend.xyaxis")
-                                    .font(.caption)
-                                Text("\(currentRecord.stockName)(\(currentRecord.stockCode))")
-                                    .font(.subheadline)
-                                    .fontWeight(.bold)
+                        // 切换要查看的股票看板
+                        Picker("选择股票", selection: $selectedStockCode) {
+                            Text("通用/大盘").tag("")
+                            ForEach(storage.favoriteStocks) { stock in
+                                Text("\(stock.name) (\(stock.code))").tag(stock.code)
                             }
-                            .foregroundColor(.blue)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 4)
-                            .background(Color.blue.opacity(0.1))
-                            .cornerRadius(8)
-                        } else {
-                            Text("全局/大盘")
-                                .font(.caption)
-                                .foregroundColor(.gray)
                         }
+                        .pickerStyle(.menu)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.blue.opacity(0.1))
+                        .cornerRadius(8)
                     }
                     
-                    // 显示备注卡片
+                    // 备注卡片展示
                     if !currentRecord.remark.isEmpty {
                         HStack {
+                            Image(systemName: "note.text")
+                                .foregroundColor(.gray)
                             Text("备注：\(currentRecord.remark)")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
-                                .lineLimit(2)
                             Spacer()
                         }
                         .padding(8)
@@ -77,7 +76,7 @@ struct DashboardView: View {
                 .padding()
                 .background(Color(UIColor.systemGroupedBackground))
                 
-                // 2. 网格看板列表
+                // 2. 网格看板数据
                 List {
                     Section(header: HStack {
                         Text("行号").frame(width: 35, alignment: .leading)
@@ -115,7 +114,7 @@ struct DashboardView: View {
                 }
                 .listStyle(.insetGrouped)
                 
-                // 3. 底部统计栏
+                // 3. 统计底栏
                 HStack {
                     HStack(spacing: 4) {
                         Text("总上涨:")

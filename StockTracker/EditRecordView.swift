@@ -16,34 +16,36 @@ struct EditRecordView: View {
         return formatter.string(from: selectedDate)
     }
     
+    // 生成读写 Key
+    var currentStorageKey: String {
+        let code = selectedStockCode.isEmpty ? "GLOBAL" : selectedStockCode
+        return "\(currentDateString)_\(code)"
+    }
+    
     var body: some View {
         NavigationView {
             VStack(spacing: 0) {
                 Form {
-                    Section(header: Text("基本信息")) {
-                        // 1. 日期选择
+                    Section(header: Text("选择股票与日期")) {
                         DatePicker("日期", selection: $selectedDate, displayedComponents: .date)
                             .environment(\.locale, Locale(identifier: "zh_Hans_CN"))
-                            .onChange(of: selectedDate) { _ in
-                                loadExistingData()
-                            }
+                            .onChange(of: selectedDate) { _ in loadExistingData() }
                         
-                        // 2. 选择关联股票（自动同步自选股列表）
-                        Picker("关联个股/大盘", selection: $selectedStockCode) {
-                            Text("无 (通用/大盘)").tag("")
+                        Picker("绑定股票", selection: $selectedStockCode) {
+                            Text("通用/大盘").tag("")
                             ForEach(storage.favoriteStocks) { stock in
                                 Text("\(stock.name) (\(stock.code))").tag(stock.code)
                             }
                         }
+                        .onChange(of: selectedStockCode) { _ in loadExistingData() }
                     }
                     
-                    // 3. 备注功能
-                    Section(header: Text("每日备注记录")) {
-                        TextField("输入今日操作笔记、看盘心得等备注...", text: $remarkText)
+                    Section(header: Text("每日看盘备注")) {
+                        TextField("填写今天针对该股票的操作心得...", text: $remarkText)
                             .focused($isInputActive)
                     }
                     
-                    Section(header: Text("点击网格可切换 涨 / 跌")) {
+                    Section(header: Text("点击网格切换 涨 / 跌")) {
                         ForEach(0..<rows.count, id: \.self) { rowIndex in
                             HStack {
                                 Text("第 \(rowIndex + 1) 行")
@@ -126,10 +128,8 @@ struct EditRecordView: View {
             .toolbar {
                 ToolbarItemGroup(placement: .keyboard) {
                     Spacer()
-                    Button("完成") {
-                        isInputActive = false
-                    }
-                    .fontWeight(.bold)
+                    Button("完成") { isInputActive = false }
+                        .fontWeight(.bold)
                 }
             }
             .withFloatingTHSButton()
@@ -137,13 +137,11 @@ struct EditRecordView: View {
     }
     
     private func loadExistingData() {
-        if let existing = storage.records[currentDateString] {
+        if let existing = storage.records[currentStorageKey] {
             self.rows = existing.rows
-            self.selectedStockCode = existing.stockCode
             self.remarkText = existing.remark
         } else {
             self.rows = (1...8).map { _ in DailyGridRow() }
-            self.selectedStockCode = ""
             self.remarkText = ""
         }
     }
@@ -165,7 +163,6 @@ struct EditRecordView: View {
     private func resetForm() {
         isInputActive = false
         self.rows = (1...8).map { _ in DailyGridRow() }
-        self.selectedStockCode = ""
         self.remarkText = ""
     }
 }

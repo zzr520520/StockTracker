@@ -75,7 +75,7 @@ struct HistoryView: View {
                     .onDelete { indexSet in
                         for index in indexSet {
                             let item = sortedRecords[index]
-                            storage.deleteRecord(dateString: item.dateString)
+                            storage.deleteRecord(id: item.id)
                         }
                     }
                 }

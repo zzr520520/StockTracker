@@ -10,34 +10,43 @@ struct StockFavoritesView: View {
         storage.favoriteStocks.sorted { $0.isPinned && !$1.isPinned }
     }
     
-    // 精准对齐同花顺真实 H5 路径逻辑
+    // 全市场兼容：A股、港股、美股智能识别逻辑
     private func getTHSStockURL(code: String) -> String {
-        let cleanCode = code.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        var formattedCode = cleanCode
+        let clean = code.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        var formattedCode = clean
         
-        // 自动补全 hs_ 或 sz_ 前缀
-        if !cleanCode.hasPrefix("hs_") && !cleanCode.hasPrefix("sz_") {
-            // 沪市/上证指数：6开头、9开头、688科创板、1A指数等
-            if cleanCode.hasPrefix("6") || cleanCode.hasPrefix("9") || cleanCode.hasPrefix("688") || cleanCode.hasPrefix("1a") {
-                formattedCode = "hs_" + cleanCode
-            } else {
-                formattedCode = "sz_" + cleanCode
-            }
+        // 1. 如果自带前缀直接使用
+        if clean.hasPrefix("hs_") || clean.hasPrefix("sz_") || clean.hasPrefix("hk_") || clean.hasPrefix("us_") {
+            formattedCode = clean
+        } 
+        // 2. 港股判断：5位数字（如 00700、09988）
+        else if clean.count == 5 && Int(clean) != nil {
+            formattedCode = "hk_" + clean
+        }
+        // 3. A股沪市判断：6开头、9开头、688等
+        else if clean.hasPrefix("6") || clean.hasPrefix("9") || clean.hasPrefix("688") || clean.hasPrefix("1a") {
+            formattedCode = "hs_" + clean
+        }
+        // 4. A股深市判断：00、300等
+        else if clean.count == 6 && Int(clean) != nil {
+            formattedCode = "sz_" + clean
+        }
+        // 5. 纯字母默认美股（如 AAPL）
+        else {
+            formattedCode = "us_" + clean
         }
         
-        // 生成完全正确的链接结构
         return "https://m.10jqka.com.cn/stockpage/\(formattedCode)/#refCountId=R_554997ea_731&atab=geguNews"
     }
     
     var body: some View {
         NavigationView {
             VStack(spacing: 0) {
-                // 顶部输入栏
                 HStack(spacing: 10) {
-                    TextField("代码(如 600519)", text: $newCode)
+                    TextField("代码(如 00700 或 600519)", text: $newCode)
                         .textFieldStyle(.roundedBorder)
                         .keyboardType(.asciiCapable)
-                        .frame(width: 140)
+                        .frame(width: 150)
                     
                     TextField("股票名称", text: $newName)
                         .textFieldStyle(.roundedBorder)
@@ -51,7 +60,6 @@ struct StockFavoritesView: View {
                 .padding()
                 .background(Color(UIColor.secondarySystemGroupedBackground))
                 
-                // 列表展示区
                 List {
                     ForEach(sortedStocks) { stock in
                         HStack {
@@ -84,7 +92,7 @@ struct StockFavoritesView: View {
                                     .background(Color.red)
                                     .cornerRadius(16)
                             }
-                            .buttonStyle(PlainButtonStyle()) // 规避单元格高亮干扰
+                            .buttonStyle(PlainButtonStyle())
                         }
                         .padding(.vertical, 4)
                         .swipeActions(edge: .leading) {
