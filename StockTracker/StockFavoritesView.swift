@@ -10,13 +10,30 @@ struct StockFavoritesView: View {
         storage.favoriteStocks.sorted { $0.isPinned && !$1.isPinned }
     }
     
+    // 关键修正：自动判断沪深股票代码格式
+    private func getTHSStockURL(code: String) -> String {
+        let cleanCode = code.trimmingCharacters(in: .whitespacesAndNewlines)
+        var formattedCode = cleanCode
+        
+        // 如果用户没有手输 sh/sz 标识，自动判断
+        if !cleanCode.hasPrefix("sh") && !cleanCode.hasPrefix("sz") {
+            if cleanCode.hasPrefix("6") || cleanCode.hasPrefix("9") || cleanCode.hasPrefix("688") {
+                formattedCode = "sh" + cleanCode
+            } else {
+                formattedCode = "sz" + cleanCode
+            }
+        }
+        // 拼接同花顺移动端 H5 真正有效的详情页地址
+        return "https://m.10jqka.com.cn/stockpage/\(formattedCode)/"
+    }
+    
     var body: some View {
         NavigationView {
             VStack {
-                // 顶部新增股票输入框
                 HStack {
                     TextField("代码(如 600519)", text: $newCode)
                         .textFieldStyle(.roundedBorder)
+                        .keyboardType(.asciiCapable)
                         .frame(width: 130)
                     
                     TextField("股票名称", text: $newName)
@@ -52,8 +69,7 @@ struct StockFavoritesView: View {
                             Spacer()
                             
                             Button("查看行情") {
-                                // 拼接同花顺网页端个股链接
-                                selectedStockURL = "https://m.10jqka.com.cn/stockpage/\(stock.code)/"
+                                selectedStockURL = getTHSStockURL(code: stock.code)
                             }
                             .buttonStyle(.borderedProminent)
                             .tint(.red)

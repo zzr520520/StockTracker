@@ -5,6 +5,7 @@ struct EditRecordView: View {
     @State private var selectedDate = Date()
     @State private var rows: [DailyGridRow] = (1...8).map { _ in DailyGridRow() }
     @State private var showSaveAlert = false
+    @FocusState private var isInputActive: Bool // 焦点控制
     
     var dateFormatter: DateFormatter {
         let formatter = DateFormatter()
@@ -21,7 +22,7 @@ struct EditRecordView: View {
             Form {
                 Section(header: Text("选择日期")) {
                     DatePicker("日期", selection: $selectedDate, displayedComponents: .date)
-                        .onChange(of: selectedDate) { newDate in
+                        .onChange(of: selectedDate) { _ in
                             loadExistingData()
                         }
                 }
@@ -34,7 +35,6 @@ struct EditRecordView: View {
                                 .foregroundColor(.gray)
                             
                             HStack {
-                                // 5列可点击网格
                                 HStack(spacing: 6) {
                                     ForEach(0..<5, id: \.self) { colIndex in
                                         Button(action: {
@@ -53,9 +53,9 @@ struct EditRecordView: View {
                                 
                                 Spacer()
                                 
-                                // 分值输入
                                 TextField("分值", value: $rows[rowIndex].score, format: .number)
                                     .keyboardType(.numberPad)
+                                    .focused($isInputActive) // 绑定键盘焦点
                                     .multilineTextAlignment(.center)
                                     .frame(width: 50, height: 36)
                                     .background(Color(UIColor.tertiarySystemFill))
@@ -89,6 +89,20 @@ struct EditRecordView: View {
             .alert("保存成功", isPresented: $showSaveAlert) {
                 Button("确定", role: .cancel) { }
             }
+            // 修复 1：添加顶部键盘工具栏，点击"完成"关闭键盘
+            .toolbar {
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("完成") {
+                        isInputActive = false
+                    }
+                    .fontWeight(.bold)
+                }
+            }
+            // 修复 2：点击非输入区域自动收起键盘
+            .onTapGesture {
+                isInputActive = false
+            }
             .withFloatingTHSButton()
         }
     }
@@ -102,12 +116,14 @@ struct EditRecordView: View {
     }
     
     private func saveCurrentData() {
+        isInputActive = false
         let record = DailyRecord(dateString: currentDateString, rows: rows)
         storage.saveRecord(record)
         showSaveAlert = true
     }
     
     private func resetForm() {
+        isInputActive = false
         self.rows = (1...8).map { _ in DailyGridRow() }
     }
 }
