@@ -140,6 +140,16 @@ class StorageManager: ObservableObject {
         }
     }
     
+    // 仅更新备注（晴雨板点击修改备注用）
+    func updateRemark(recordKey: String, rowIndex: Int, remark: String) {
+        var current = records[recordKey] ?? DailyRecord(recordKey: recordKey, rows: (1...4).map { _ in DailyGridRow() })
+        if rowIndex < current.rows.count {
+            current.rows[rowIndex].rowRemark = remark
+            records[recordKey] = current
+            syncToDisk()
+        }
+    }
+    
     func deleteRecord(key: String) {
         records.removeValue(forKey: key)
         syncToDisk()

@@ -1,7 +1,7 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
-// JSON 文档类型，用于 fileExporter / fileImporter
+// JSON 文档类型，用于 fileExporter
 struct JSONDocument: FileDocument {
     static var readableContentTypes: [UTType] { [.json] }
     var data: Data
@@ -20,6 +20,43 @@ struct JSONDocument: FileDocument {
 
     func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
         return FileWrapper(regularFileWithContents: data)
+    }
+}
+
+// 使用 UIDocumentPickerViewController 替代 SwiftUI fileImporter
+// 解决在 sheet 内部 fileImporter 点击文件无反应的问题
+struct DocumentPickerView: UIViewControllerRepresentable {
+    var onPick: (URL) -> Void
+    
+    func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
+        let picker = UIDocumentPickerViewController(forOpeningContentTypes: [UTType.json, UTType.item])
+        picker.allowsMultipleSelection = false
+        picker.delegate = context.coordinator
+        picker.shouldShowFileExtensions = true
+        return picker
+    }
+    
+    func updateUIViewController(_ uiViewController: UIDocumentPickerViewController, context: Context) {}
+    
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onPick: onPick)
+    }
+    
+    class Coordinator: NSObject, UIDocumentPickerDelegate {
+        var onPick: (URL) -> Void
+        
+        init(onPick: @escaping (URL) -> Void) {
+            self.onPick = onPick
+        }
+        
+        func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+            guard let url = urls.first else { return }
+            onPick(url)
+        }
+        
+        func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
+            // 用户取消，无需处理
+        }
     }
 }
 
@@ -69,27 +106,26 @@ struct SettingsView: View {
                     Button("完成") { dismiss() }
                 }
             }
+            // 导出用 fileExporter（正常工作）
             .fileExporter(isPresented: $showingExporter, document: exportDoc, contentType: .json, defaultFilename: "晴雨板备份_\(Int(Date().timeIntervalSince1970)).json") { result in
                 switch result {
                 case .success:
-                    alertMsg = "导出备份成功！请选择保存位置。"
+                    alertMsg = "导出备份成功！"
                 case .failure(let err):
                     alertMsg = "导出失败: \(err.localizedDescription)"
                 }
                 showAlert = true
             }
-            .fileImporter(isPresented: $showingImporter, allowedContentTypes: [.json, .item]) { result in
-                switch result {
-                case .success(let url):
+            // 导入用 UIDocumentPickerViewController（修复在 sheet 内无响应的问题）
+            .sheet(isPresented: $showingImporter) {
+                DocumentPickerView { url in
                     if storage.importFromURL(url) {
                         alertMsg = "导入恢复成功！"
                     } else {
-                        alertMsg = "导入失败：文件格式不匹配。"
+                        alertMsg = "导入失败：文件格式不匹配或读取失败。"
                     }
-                case .failure(let err):
-                    alertMsg = "读取文件失败: \(err.localizedDescription)"
+                    showAlert = true
                 }
-                showAlert = true
             }
             .alert(alertMsg, isPresented: $showAlert) {
                 Button("确定", role: .cancel) { }

@@ -8,6 +8,14 @@ struct SearchResultItem: Identifiable {
     let row: DailyGridRow
 }
 
+// 备注编辑 Sheet 的目标
+struct RemarkEditTarget: Identifiable {
+    var id: String { "\(recordKey)_\(rowIndex)" }
+    let recordKey: String
+    let rowIndex: Int
+    let weekLabel: String
+}
+
 struct DashboardView: View {
     @ObservedObject var storage = StorageManager.shared
     @State private var year: Int = Calendar.current.component(.year, from: Date())
@@ -16,6 +24,8 @@ struct DashboardView: View {
     @State private var showDetailSheet = false
     @State private var searchText = ""
     @State private var showSettings = false
+    @State private var remarkEditTarget: RemarkEditTarget? = nil
+    @State private var editingRemark = ""
     
     private let weekLabels = ["第一周", "第二周", "第三周", "第四周"]
     
@@ -188,11 +198,28 @@ struct DashboardView: View {
                                             }
                                         }
                                     }
+                                    
+                                    // 点击修改备注提示
+                                    HStack {
+                                        Spacer()
+                                        Text("点击修改备注")
+                                            .font(.system(size: 10))
+                                            .foregroundColor(.blue.opacity(0.6))
+                                    }
                                 }
                                 .padding()
                                 .background(Color(UIColor.systemBackground))
                                 .cornerRadius(12)
                                 .shadow(color: Color.black.opacity(0.04), radius: 4, x: 0, y: 2)
+                                // 点击卡片修改备注
+                                .onTapGesture {
+                                    editingRemark = rowData?.rowRemark ?? ""
+                                    remarkEditTarget = RemarkEditTarget(
+                                        recordKey: currentDateKey,
+                                        rowIndex: index,
+                                        weekLabel: label
+                                    )
+                                }
                             }
                         }
                         .padding()
@@ -302,6 +329,65 @@ struct DashboardView: View {
             }
             .sheet(isPresented: $showSettings) {
                 SettingsView()
+            }
+            // 备注编辑 Sheet
+            .sheet(item: $remarkEditTarget) { target in
+                RemarkEditSheet(
+                    weekLabel: target.weekLabel,
+                    remark: $editingRemark,
+                    onSave: {
+                        storage.updateRemark(recordKey: target.recordKey, rowIndex: target.rowIndex, remark: editingRemark)
+                        remarkEditTarget = nil
+                    },
+                    onCancel: {
+                        remarkEditTarget = nil
+                    }
+                )
+            }
+        }
+    }
+}
+
+// 备注编辑 Sheet
+struct RemarkEditSheet: View {
+    let weekLabel: String
+    @Binding var remark: String
+    let onSave: () -> Void
+    let onCancel: () -> Void
+    @FocusState private var isFocused: Bool
+    
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 20) {
+                Text("修改【\(weekLabel)】备注")
+                    .font(.headline)
+                    .fontWeight(.bold)
+                    .padding(.top, 20)
+                
+                TextField("请输入备注内容...", text: $remark, axis: .vertical)
+                    .textFieldStyle(.roundedBorder)
+                    .focused($isFocused)
+                    .lineLimit(3...6)
+                    .padding(.horizontal)
+                
+                Spacer()
+            }
+            .navigationTitle("编辑备注")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("取消") { onCancel() }
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("保存") { onSave() }
+                        .fontWeight(.bold)
+                        .foregroundColor(.blue)
+                }
+            }
+            .onAppear {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    isFocused = true
+                }
             }
         }
     }
