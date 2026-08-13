@@ -18,77 +18,88 @@ enum GridStatus: String, Codable, CaseIterable {
     }
 }
 
-// 单行 5 交易日网格数据
+// 包含左侧日期和备注的单行记录
 struct DailyGridRow: Identifiable, Codable {
     var id = UUID()
-    var grid: [GridStatus] // 固定 5 列（周一至周五）
-    var score: Double
+    var rowDate: Date = Date()   // 左侧行日期
+    var rowRemark: String = ""   // 左侧行备注
+    var grid: [GridStatus]      // 5 列网格（周一至周五）
+    var score: Double           // 右侧分值
     
-    init(grid: [GridStatus] = Array(repeating: .smallUp, count: 5), score: Double = 0.0) {
+    init(rowDate: Date = Date(), rowRemark: String = "", grid: [GridStatus] = Array(repeating: .smallUp, count: 5), score: Double = 0.0) {
+        self.id = UUID()
+        self.rowDate = rowDate
+        self.rowRemark = rowRemark
         self.grid = grid
         self.score = score
     }
 }
 
-// 每周/每日记录模型
+// 晴雨板整体记录
 struct DailyRecord: Identifiable, Codable {
-    // 复合唯一主键：日期_标注
-    var id: String { 
-        let tag = tagNote.isEmpty ? "DEFAULT" : tagNote
-        return "\(dateString)_\(tag)" 
-    }
-    
-    var dateString: String // 格式: yyyy-MM-dd
-    var tagNote: String = "" // 顶部右侧标注/股票名称
+    var id: String { recordKey }
+    var recordKey: String      // 记录唯一标识
     var rows: [DailyGridRow]
     
-    // 统计大涨与小涨总数
-    var totalUpCount: Int {
+    // 统计大涨、小涨、大跌、小跌合计数量（用 for 循环避免编译器超时）
+    var bigUpCount: Int {
         var count = 0
         for row in rows {
-            for status in row.grid {
-                if status == .bigUp || status == .smallUp {
-                    count += 1
-                }
+            for s in row.grid {
+                if s == .bigUp { count += 1 }
             }
         }
         return count
     }
-    
-    // 统计大跌与小跌总数
-    var totalDownCount: Int {
+    var smallUpCount: Int {
         var count = 0
         for row in rows {
-            for status in row.grid {
-                if status == .bigDown || status == .smallDown {
-                    count += 1
-                }
+            for s in row.grid {
+                if s == .smallUp { count += 1 }
+            }
+        }
+        return count
+    }
+    var bigDownCount: Int {
+        var count = 0
+        for row in rows {
+            for s in row.grid {
+                if s == .bigDown { count += 1 }
+            }
+        }
+        return count
+    }
+    var smallDownCount: Int {
+        var count = 0
+        for row in rows {
+            for s in row.grid {
+                if s == .smallDown { count += 1 }
             }
         }
         return count
     }
 }
 
-// 本地离线持久化管理类
+// 数据持久化
 class StorageManager: ObservableObject {
     static let shared = StorageManager()
     
     @Published var records: [String: DailyRecord] = [:]
-    private let recordsKey = "SavedTradingRecords_v3"
+    private let recordsKey = "SavedSunnyRainRecords_v4"
     
     init() {
         loadData()
     }
     
     func saveRecord(_ record: DailyRecord) {
-        records[record.id] = record
+        records[record.recordKey] = record
         if let encoded = try? JSONEncoder().encode(records) {
             UserDefaults.standard.set(encoded, forKey: recordsKey)
         }
     }
     
-    func deleteRecord(id: String) {
-        records.removeValue(forKey: id)
+    func deleteRecord(key: String) {
+        records.removeValue(forKey: key)
         if let encoded = try? JSONEncoder().encode(records) {
             UserDefaults.standard.set(encoded, forKey: recordsKey)
         }

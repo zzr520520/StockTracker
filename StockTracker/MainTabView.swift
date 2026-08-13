@@ -5,7 +5,7 @@ struct MainTabView: View {
         TabView {
             DashboardView()
                 .tabItem {
-                    Label("行情看板", systemImage: "chart.grid.5x7.fill")
+                    Label("晴雨板", systemImage: "sun.rain.fill")
                 }
             
             EditRecordView()
