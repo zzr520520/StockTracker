@@ -21,7 +21,6 @@ struct DashboardView: View {
     @State private var year: Int = Calendar.current.component(.year, from: Date())
     @State private var month: Int = Calendar.current.component(.month, from: Date())
     @State private var showMonthPicker = false
-    @State private var showDetailSheet = false
     @State private var searchText = ""
     @State private var showSettings = false
     @State private var remarkEditTarget: RemarkEditTarget? = nil
@@ -75,7 +74,7 @@ struct DashboardView: View {
     var body: some View {
         NavigationView {
             VStack(spacing: 0) {
-                // 1. 顶部搜索栏 + 左上角设置按钮（搜索栏在晴雨板最顶部）
+                // 1. 顶部搜索栏 + 左上角设置按钮
                 HStack(spacing: 10) {
                     // 左上角设置按钮
                     Button(action: { showSettings = true }) {
@@ -182,10 +181,35 @@ struct DashboardView: View {
                                             }
                                         }
                                         
+                                        // 备注区域：只有点击备注文字才能编辑，点击其他无反应
                                         if !row.rowRemark.isEmpty {
-                                            Text("备注: \(row.rowRemark)")
+                                            Text(row.rowRemark)
                                                 .font(.caption)
                                                 .foregroundColor(.orange)
+                                                .frame(maxWidth: .infinity, alignment: .leading)
+                                                .contentShape(Rectangle())
+                                                .onTapGesture {
+                                                    editingRemark = row.rowRemark
+                                                    remarkEditTarget = RemarkEditTarget(
+                                                        recordKey: currentDateKey,
+                                                        rowIndex: index,
+                                                        weekLabel: label
+                                                    )
+                                                }
+                                        } else {
+                                            Text("添加备注")
+                                                .font(.caption)
+                                                .foregroundColor(.blue.opacity(0.4))
+                                                .frame(maxWidth: .infinity, alignment: .leading)
+                                                .contentShape(Rectangle())
+                                                .onTapGesture {
+                                                    editingRemark = ""
+                                                    remarkEditTarget = RemarkEditTarget(
+                                                        recordKey: currentDateKey,
+                                                        rowIndex: index,
+                                                        weekLabel: label
+                                                    )
+                                                }
                                         }
                                     } else {
                                         // 未设置数据的空白占位格
@@ -198,28 +222,11 @@ struct DashboardView: View {
                                             }
                                         }
                                     }
-                                    
-                                    // 点击修改备注提示
-                                    HStack {
-                                        Spacer()
-                                        Text("点击修改备注")
-                                            .font(.system(size: 10))
-                                            .foregroundColor(.blue.opacity(0.6))
-                                    }
                                 }
                                 .padding()
                                 .background(Color(UIColor.systemBackground))
                                 .cornerRadius(12)
                                 .shadow(color: Color.black.opacity(0.04), radius: 4, x: 0, y: 2)
-                                // 点击卡片修改备注
-                                .onTapGesture {
-                                    editingRemark = rowData?.rowRemark ?? ""
-                                    remarkEditTarget = RemarkEditTarget(
-                                        recordKey: currentDateKey,
-                                        rowIndex: index,
-                                        weekLabel: label
-                                    )
-                                }
                             }
                         }
                         .padding()
