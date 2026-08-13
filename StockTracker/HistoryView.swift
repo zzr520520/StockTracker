@@ -4,8 +4,6 @@ import UniformTypeIdentifiers
 struct HistoryView: View {
     @ObservedObject var storage = StorageManager.shared
     @State private var searchText = ""
-    @State private var selectedRecordKey: String? = nil
-    
     @State private var shareURL: URL? = nil
     @State private var showShareSheet = false
     @State private var showImporter = false
@@ -70,7 +68,7 @@ struct HistoryView: View {
                         .padding(.vertical, 4)
                     }
                     
-                    Section(header: Text("历史月份列表 (点击查看与编辑备注)")) {
+                    Section(header: Text("历史月份记录")) {
                         ForEach(filteredRecords) { record in
                             VStack(alignment: .leading, spacing: 6) {
                                 HStack {
@@ -83,26 +81,15 @@ struct HistoryView: View {
                                         .foregroundColor(.secondary)
                                 }
                                 
-                                let remarks = record.rows.map { $0.rowRemark }.filter { !$0.isEmpty }
+                                let remarks = record.rows.filter { $0.isSet && !$0.rowRemark.isEmpty }.map { $0.rowRemark }
                                 if !remarks.isEmpty {
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        ForEach(remarks, id: \.self) { rem in
-                                            Text("• 备注: \(rem)")
-                                                .font(.caption)
-                                                .foregroundColor(.orange)
-                                                .lineLimit(1)
-                                        }
-                                    }
-                                    .padding(4)
-                                    .background(Color.orange.opacity(0.08))
-                                    .cornerRadius(4)
+                                    Text("备注: \(remarks.joined(separator: ", "))")
+                                        .font(.caption)
+                                        .foregroundColor(.orange)
+                                        .lineLimit(1)
                                 }
                             }
                             .padding(.vertical, 4)
-                            .contentShape(Rectangle())
-                            .onTapGesture {
-                                selectedRecordKey = record.recordKey
-                            }
                         }
                         .onDelete { indexSet in
                             for index in indexSet {
@@ -116,28 +103,17 @@ struct HistoryView: View {
             }
             .navigationTitle("历史记录")
             .searchable(text: $searchText, prompt: "搜索年月或备注内容...")
-            .environment(\.locale, Locale(identifier: "zh_Hans_CN"))
-            .sheet(item: Binding(
-                get: { selectedRecordKey != nil ? IdentifiableString(value: selectedRecordKey!) : nil },
-                set: { selectedRecordKey = $0?.value }
-            )) { item in
-                RecordDetailSheet(recordKey: item.value)
-            }
             .sheet(isPresented: $showShareSheet) {
-                if let url = shareURL {
-                    ShareSheet(activityItems: [url])
-                }
+                if let url = shareURL { ShareSheet(activityItems: [url]) }
             }
             .fileImporter(isPresented: $showImporter, allowedContentTypes: [.zip, .archive, .item]) { result in
                 switch result {
                 case .success(let url):
                     if storage.importFromURL(url) {
                         alertMessage = "恢复备份数据成功！"
-                    } else {
-                        alertMessage = "导入失败：格式不匹配或 Zip 文件无效。"
-                    }
+                    } else { alertMessage = "导入失败：文件无效。" }
                 case .failure(let err):
-                    alertMessage = "读取文件失败: \(err.localizedDescription)"
+                    alertMessage = "读取失败: \(err.localizedDescription)"
                 }
                 showAlert = true
             }
@@ -152,7 +128,7 @@ struct HistoryView: View {
             self.shareURL = url
             self.showShareSheet = true
         } else {
-            alertMessage = "生成备份文件失败"
+            alertMessage = "生成备份失败"
             showAlert = true
         }
     }
