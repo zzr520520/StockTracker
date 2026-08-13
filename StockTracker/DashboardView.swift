@@ -12,10 +12,11 @@ struct DashboardView: View {
         return formatter.string(from: selectedDate)
     }
     
+    // 固定 8 行（前4行当月，后4行下个月，共2个月）
     var currentRecord: DailyRecord {
         storage.records[currentDateKey] ?? DailyRecord(
             recordKey: currentDateKey,
-            rows: (1...6).map { _ in DailyGridRow() }
+            rows: (1...8).map { _ in DailyGridRow() }
         )
     }
     
@@ -49,23 +50,23 @@ struct DashboardView: View {
                 .padding()
                 .background(Color(UIColor.systemGroupedBackground))
                 
-                // 看板主视图
+                // 8 行晴雨板展示（前4行为第1个月，后4行为第2个月）
                 List {
-                    Section(header: Text("点击卡片可查看完整备注与详情").font(.caption)) {
-                        ForEach(currentRecord.rows) { row in
+                    Section(header: Text("晴雨板 (共 8 行 / 2 个月，点击可修改备注)").font(.caption)) {
+                        ForEach(0..<currentRecord.rows.count, id: \.self) { index in
+                            let row = currentRecord.rows[index]
                             VStack(alignment: .leading, spacing: 6) {
-                                // 1. 日期区间与分值第一行
                                 HStack {
-                                    Text(formatDateRange(start: row.startDate, end: row.endDate))
-                                        .font(.system(size: 12, weight: .bold))
-                                        .foregroundColor(.blue)
+                                    Text("【第 \(index + 1) 行】\(formatDateRange(start: row.startDate, end: row.endDate))")
+                                        .font(.system(size: 11, weight: .bold))
+                                        .foregroundColor(index < 4 ? .blue : .purple)
                                     Spacer()
                                     Text("分值: \(formatScore(row.score))")
-                                        .font(.system(size: 12, weight: .semibold))
+                                        .font(.system(size: 11, weight: .semibold))
                                         .foregroundColor(.gray)
                                 }
                                 
-                                // 2. 涨幅格子独立第二行
+                                // 涨跌格子
                                 HStack(spacing: 4) {
                                     ForEach(0..<5, id: \.self) { col in
                                         let status = col < row.grid.count ? row.grid[col] : .smallUp
@@ -78,7 +79,6 @@ struct DashboardView: View {
                                     }
                                 }
                                 
-                                // 3. 备注独立第三行
                                 if !row.rowRemark.isEmpty {
                                     Text("备注: \(row.rowRemark)")
                                         .font(.system(size: 10))
@@ -96,7 +96,7 @@ struct DashboardView: View {
                 }
                 .listStyle(.insetGrouped)
                 
-                // 底部 4 统计项
+                // 底部 4 指标统计
                 VStack(spacing: 6) {
                     HStack {
                         Text("大涨: \(currentRecord.bigUpCount)").foregroundColor(GridStatus.bigUp.color)
@@ -110,7 +110,7 @@ struct DashboardView: View {
                     .font(.caption)
                     .fontWeight(.bold)
                     
-                    Button("查看详细明细") {
+                    Button("查看与修改晴雨板备注") {
                         showingDetailSheet = true
                     }
                     .font(.caption)
@@ -126,7 +126,7 @@ struct DashboardView: View {
             .navigationTitle("晴雨板")
             .environment(\.locale, Locale(identifier: "zh_Hans_CN"))
             .sheet(isPresented: $showingDetailSheet) {
-                RecordDetailSheet(record: currentRecord)
+                RecordDetailSheet(recordKey: currentDateKey)
             }
         }
     }

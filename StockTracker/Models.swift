@@ -19,13 +19,13 @@ enum GridStatus: String, Codable, CaseIterable {
     }
 }
 
-// 单行记录（涨幅格子独立一行，日期区间独立一行，备注独立一行）
+// 单行数据结构
 struct DailyGridRow: Identifiable, Codable {
     var id = UUID()
-    var startDate: Date = Date() // 开始日期 (如 8月3日)
-    var endDate: Date = Date()   // 截止日期 (如 8月6日)
+    var startDate: Date = Date() // 开始日期
+    var endDate: Date = Date()   // 结束日期
     var rowRemark: String = ""   // 独立备注
-    var grid: [GridStatus]      // 5列涨跌格子 (独立一行)
+    var grid: [GridStatus]      // 5列涨跌格子
     var score: Double           // 分值
     
     init(startDate: Date = Date(), endDate: Date = Date(), rowRemark: String = "", grid: [GridStatus] = Array(repeating: .smallUp, count: 5), score: Double = 0.0) {
@@ -38,10 +38,10 @@ struct DailyGridRow: Identifiable, Codable {
     }
 }
 
-// 主体晴雨板记录 (按年月 yyyy-MM 归档)
+// 晴雨板主数据（固定 8 行，代表 2 个月）
 struct DailyRecord: Identifiable, Codable {
     var id: String { recordKey }
-    var recordKey: String
+    var recordKey: String // 格式: yyyy-MM
     var rows: [DailyGridRow]
     
     // 统计大涨、小涨、大跌、小跌合计数量（用 for 循环避免编译器超时）
@@ -83,24 +83,29 @@ struct DailyRecord: Identifiable, Codable {
     }
 }
 
-// 原生系统分享调起器 (UIActivityViewController)
+// 系统原生分享包
 struct ShareSheet: UIViewControllerRepresentable {
     var activityItems: [Any]
     
     func makeUIViewController(context: Context) -> UIActivityViewController {
-        let controller = UIActivityViewController(activityItems: activityItems, applicationActivities: nil)
-        return controller
+        return UIActivityViewController(activityItems: activityItems, applicationActivities: nil)
     }
     
     func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
 
-// 数据管理与备份逻辑
+// 用于 sheet 绑定的字符串包装
+struct IdentifiableString: Identifiable {
+    var id: String { value }
+    let value: String
+}
+
+// 持久化管理类
 class StorageManager: ObservableObject {
     static let shared = StorageManager()
     
     @Published var records: [String: DailyRecord] = [:]
-    private let recordsKey = "SunnyRainStorage_v6"
+    private let recordsKey = "SunnyRainStorage_v7"
     
     init() {
         loadData()
@@ -109,6 +114,16 @@ class StorageManager: ObservableObject {
     func saveRecord(_ record: DailyRecord) {
         records[record.recordKey] = record
         syncToDisk()
+    }
+    
+    // 独立保存单行数据
+    func saveSingleRow(recordKey: String, rowIndex: Int, rowData: DailyGridRow) {
+        var current = records[recordKey] ?? DailyRecord(recordKey: recordKey, rows: (1...8).map { _ in DailyGridRow() })
+        if rowIndex < current.rows.count {
+            current.rows[rowIndex] = rowData
+            records[recordKey] = current
+            syncToDisk()
+        }
     }
     
     func deleteRecord(key: String) {
@@ -129,13 +144,12 @@ class StorageManager: ObservableObject {
         }
     }
     
-    // 生成 Zip 临时文件用于系统分享
+    // 生成 Zip 备份文件用于分享
     func generateZipFileURL() -> URL? {
         guard let jsonData = try? JSONEncoder().encode(records) else { return nil }
         let tempDir = FileManager.default.temporaryDirectory
         let fileURL = tempDir.appendingPathComponent("SunnyRain_Backup_\(Int(Date().timeIntervalSince1970)).zip")
         
-        // 构建带有 Zip 文件头的 Data
         var zipData = Data()
         let filename = "backup.json"
         let filenameData = filename.data(using: .utf8)!
@@ -169,10 +183,9 @@ class StorageManager: ObservableObject {
         }
     }
     
-    // 读取与解包 Zip 导入备份
+    // 读取与解包 Zip 恢复
     func importFromURL(_ url: URL) -> Bool {
         guard url.startAccessingSecurityScopedResource() else {
-            // 如果无法获得安全权限，尝试直接读取
             return decodeAndSave(from: url)
         }
         defer { url.stopAccessingSecurityScopedResource() }
@@ -181,15 +194,11 @@ class StorageManager: ObservableObject {
     
     private func decodeAndSave(from url: URL) -> Bool {
         guard let data = try? Data(contentsOf: url) else { return false }
-        
-        // 尝试直接 JSON 恢复
         if let decoded = try? JSONDecoder().decode([String: DailyRecord].self, from: data) {
             self.records = decoded
             syncToDisk()
             return true
         }
-        
-        // 如果是 Zip 提取包含的 JSON 内容
         if let start = data.range(of: "{".data(using: .utf8)!),
            let end = data.range(of: "}".data(using: .utf8)!, options: .backwards) {
             let jsonSlice = data.subdata(in: start.lowerBound..<end.upperBound)

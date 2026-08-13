@@ -1,8 +1,11 @@
 import SwiftUI
 
 struct RecordDetailSheet: View {
-    let record: DailyRecord
+    @ObservedObject var storage = StorageManager.shared
+    let recordKey: String
     @Environment(\.dismiss) var dismiss
+    
+    @State private var currentRecord: DailyRecord = DailyRecord(recordKey: "", rows: [])
     
     private func formatDateRange(start: Date, end: Date) -> String {
         let f = DateFormatter()
@@ -18,31 +21,31 @@ struct RecordDetailSheet: View {
         NavigationView {
             ScrollView {
                 VStack(spacing: 16) {
-                    // 涨跌概览卡片
+                    // 涨跌汇总统计
                     VStack(spacing: 8) {
-                        Text("涨跌汇总统计")
+                        Text("涨跌汇总统计 (共8行/2个月)")
                             .font(.headline)
                             .foregroundColor(.gray)
                         
                         HStack {
                             VStack {
                                 Text("大涨").font(.caption).foregroundColor(.gray)
-                                Text("\(record.bigUpCount)").font(.title3).bold().foregroundColor(GridStatus.bigUp.color)
+                                Text("\(currentRecord.bigUpCount)").font(.title3).bold().foregroundColor(GridStatus.bigUp.color)
                             }.frame(maxWidth: .infinity)
                             
                             VStack {
                                 Text("小涨").font(.caption).foregroundColor(.gray)
-                                Text("\(record.smallUpCount)").font(.title3).bold().foregroundColor(GridStatus.smallUp.color)
+                                Text("\(currentRecord.smallUpCount)").font(.title3).bold().foregroundColor(GridStatus.smallUp.color)
                             }.frame(maxWidth: .infinity)
                             
                             VStack {
                                 Text("大跌").font(.caption).foregroundColor(.gray)
-                                Text("\(record.bigDownCount)").font(.title3).bold().foregroundColor(GridStatus.bigDown.color)
+                                Text("\(currentRecord.bigDownCount)").font(.title3).bold().foregroundColor(GridStatus.bigDown.color)
                             }.frame(maxWidth: .infinity)
                             
                             VStack {
                                 Text("小跌").font(.caption).foregroundColor(.gray)
-                                Text("\(record.smallDownCount)").font(.title3).bold().foregroundColor(GridStatus.smallDown.color)
+                                Text("\(currentRecord.smallDownCount)").font(.title3).bold().foregroundColor(GridStatus.smallDown.color)
                             }.frame(maxWidth: .infinity)
                         }
                     }
@@ -50,51 +53,47 @@ struct RecordDetailSheet: View {
                     .background(Color(UIColor.secondarySystemGroupedBackground))
                     .cornerRadius(12)
                     
-                    // 独行布局展示
+                    // 详细列表展示与可编辑备注
                     VStack(alignment: .leading, spacing: 14) {
-                        Text("明细情况").font(.headline).padding(.horizontal)
+                        Text("明细与备注修改").font(.headline).padding(.horizontal)
                         
-                        ForEach(Array(record.rows.enumerated()), id: \.offset) { index, row in
+                        ForEach(0..<currentRecord.rows.count, id: \.self) { index in
                             VStack(alignment: .leading, spacing: 8) {
-                                // 1. 日期区间与分值独立第一行
                                 HStack {
-                                    Text("日期：\(formatDateRange(start: row.startDate, end: row.endDate))")
-                                        .font(.subheadline)
+                                    Text("第 \(index + 1) 行 (日期: \(formatDateRange(start: currentRecord.rows[index].startDate, end: currentRecord.rows[index].endDate)))")
+                                        .font(.caption)
                                         .fontWeight(.bold)
                                         .foregroundColor(.blue)
                                     Spacer()
-                                    Text("分值：\(formatScore(row.score))")
-                                        .font(.subheadline)
-                                        .fontWeight(.semibold)
+                                    Text("分值: \(formatScore(currentRecord.rows[index].score))")
+                                        .font(.caption)
+                                        .foregroundColor(.gray)
                                 }
                                 
-                                // 2. 涨跌格子独立第二行
+                                // 涨跌格子
                                 HStack(spacing: 4) {
                                     ForEach(0..<5, id: \.self) { col in
-                                        let status = col < row.grid.count ? row.grid[col] : .smallUp
+                                        let status = col < currentRecord.rows[index].grid.count ? currentRecord.rows[index].grid[col] : .smallUp
                                         Text(status.rawValue)
                                             .font(.system(size: 11, weight: .bold))
                                             .foregroundColor(.white)
-                                            .frame(maxWidth: .infinity, minHeight: 32)
+                                            .frame(maxWidth: .infinity, minHeight: 30)
                                             .background(status.color)
                                             .cornerRadius(6)
                                     }
                                 }
                                 
-                                // 3. 备注独立第三行
-                                if !row.rowRemark.isEmpty {
-                                    HStack(alignment: .top) {
-                                        Image(systemName: "square.and.pencil")
-                                            .font(.caption)
-                                            .foregroundColor(.orange)
-                                        Text("备注：\(row.rowRemark)")
-                                            .font(.caption)
-                                            .foregroundColor(.secondary)
-                                    }
-                                    .padding(8)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .background(Color.orange.opacity(0.08))
-                                    .cornerRadius(6)
+                                // 实时修改备注权限
+                                HStack {
+                                    Image(systemName: "pencil")
+                                        .font(.caption)
+                                        .foregroundColor(.orange)
+                                    TextField("在此处修改编辑本行备注...", text: $currentRecord.rows[index].rowRemark)
+                                        .font(.system(size: 12))
+                                        .textFieldStyle(.roundedBorder)
+                                        .onChange(of: currentRecord.rows[index].rowRemark) { _ in
+                                            storage.saveRecord(currentRecord)
+                                        }
                                 }
                             }
                             .padding()
@@ -106,11 +105,18 @@ struct RecordDetailSheet: View {
                 .padding()
             }
             .background(Color(UIColor.systemGroupedBackground))
-            .navigationTitle("晴雨板明细 (\(record.recordKey))")
+            .navigationTitle("晴雨板明细 (\(recordKey))")
             .navigationBarTitleDisplayMode(.inline)
+            .onAppear {
+                if let rec = storage.records[recordKey] {
+                    self.currentRecord = rec
+                } else {
+                    self.currentRecord = DailyRecord(recordKey: recordKey, rows: (1...8).map { _ in DailyGridRow() })
+                }
+            }
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("关闭") { dismiss() }
+                    Button("完成") { dismiss() }
                 }
             }
         }

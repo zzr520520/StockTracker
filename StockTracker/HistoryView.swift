@@ -4,9 +4,8 @@ import UniformTypeIdentifiers
 struct HistoryView: View {
     @ObservedObject var storage = StorageManager.shared
     @State private var searchText = ""
-    @State private var selectedRecordForDetail: DailyRecord? = nil
+    @State private var selectedRecordKey: String? = nil
     
-    // 备份控制
     @State private var shareURL: URL? = nil
     @State private var showShareSheet = false
     @State private var showImporter = false
@@ -42,7 +41,6 @@ struct HistoryView: View {
                 List {
                     Section(header: Text("备份与恢复")) {
                         HStack(spacing: 12) {
-                            // 1. 系统分享导出 Zip
                             Button(action: exportAndShareZip) {
                                 HStack {
                                     Image(systemName: "square.and.arrow.up")
@@ -56,7 +54,6 @@ struct HistoryView: View {
                             }
                             .buttonStyle(PlainButtonStyle())
                             
-                            // 2. 导入 Zip 文件恢复
                             Button(action: { showImporter = true }) {
                                 HStack {
                                     Image(systemName: "square.and.arrow.down")
@@ -73,7 +70,7 @@ struct HistoryView: View {
                         .padding(.vertical, 4)
                     }
                     
-                    Section(header: Text("历史列表 (点击任意卡片查看详情)")) {
+                    Section(header: Text("历史月份列表 (点击查看或修改备注)")) {
                         ForEach(filteredRecords) { record in
                             VStack(alignment: .leading, spacing: 6) {
                                 HStack {
@@ -100,24 +97,11 @@ struct HistoryView: View {
                                     .background(Color.orange.opacity(0.08))
                                     .cornerRadius(4)
                                 }
-                                
-                                VStack(spacing: 2) {
-                                    ForEach(record.rows.prefix(3)) { row in
-                                        HStack(spacing: 3) {
-                                            ForEach(0..<5, id: \.self) { col in
-                                                let st = col < row.grid.count ? row.grid[col] : .smallUp
-                                                RoundedRectangle(cornerRadius: 2)
-                                                    .fill(st.color)
-                                                    .frame(height: 6)
-                                            }
-                                        }
-                                    }
-                                }
                             }
                             .padding(.vertical, 4)
                             .contentShape(Rectangle())
                             .onTapGesture {
-                                selectedRecordForDetail = record
+                                selectedRecordKey = record.recordKey
                             }
                         }
                         .onDelete { indexSet in
@@ -133,8 +117,11 @@ struct HistoryView: View {
             .navigationTitle("历史记录")
             .searchable(text: $searchText, prompt: "搜索年月或备注内容...")
             .environment(\.locale, Locale(identifier: "zh_Hans_CN"))
-            .sheet(item: $selectedRecordForDetail) { record in
-                RecordDetailSheet(record: record)
+            .sheet(item: Binding(
+                get: { selectedRecordKey != nil ? IdentifiableString(value: selectedRecordKey!) : nil },
+                set: { selectedRecordKey = $0?.value }
+            )) { item in
+                RecordDetailSheet(recordKey: item.value)
             }
             .sheet(isPresented: $showShareSheet) {
                 if let url = shareURL {
