@@ -44,12 +44,28 @@ struct DailyRecord: Identifiable, Codable {
     
     // 统计大涨与小涨总数
     var totalUpCount: Int {
-        rows.flatMap { $0.grid }.filter { $0 == .bigUp || $0 == .smallUp }.count
+        var count = 0
+        for row in rows {
+            for status in row.grid {
+                if status == .bigUp || status == .smallUp {
+                    count += 1
+                }
+            }
+        }
+        return count
     }
     
     // 统计大跌与小跌总数
     var totalDownCount: Int {
-        rows.flatMap { $0.grid }.filter { $0 == .bigDown || $0 == .smallDown }.count
+        var count = 0
+        for row in rows {
+            for status in row.grid {
+                if status == .bigDown || status == .smallDown {
+                    count += 1
+                }
+            }
+        }
+        return count
     }
 }
 

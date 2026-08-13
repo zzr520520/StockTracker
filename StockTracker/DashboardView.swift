@@ -29,6 +29,20 @@ struct DashboardView: View {
         }
     }
     
+    // 提取所有可用的标注（去重、过滤空值）
+    var availableTagNotes: [String] {
+        var seen = Set<String>()
+        var result: [String] = []
+        for record in storage.records.values {
+            let tag = record.tagNote
+            if !tag.isEmpty && !seen.contains(tag) {
+                seen.insert(tag)
+                result.append(tag)
+            }
+        }
+        return result
+    }
+    
     var body: some View {
         NavigationView {
             VStack(spacing: 0) {
@@ -44,7 +58,7 @@ struct DashboardView: View {
                     // 动态显示当前可用的标注/标签
                     Menu {
                         Button("默认/通用") { selectedTagNote = "" }
-                        ForEach(Array(Set(storage.records.values.map { $0.tagNote })).filter { !$0.isEmpty }, id: \.self) { tag in
+                        ForEach(availableTagNotes, id: \.self) { tag in
                             Button(tag) { selectedTagNote = tag }
                         }
                     } label: {
