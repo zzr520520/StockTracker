@@ -2,12 +2,11 @@ import SwiftUI
 
 struct EditRecordView: View {
     @ObservedObject var storage = StorageManager.shared
-    @State private var mainDate = Date() // 顶部年月
+    @State private var mainDate = Date()
     @State private var rows: [DailyGridRow] = (1...6).map { _ in DailyGridRow() }
     @State private var showSaveAlert = false
     @FocusState private var isInputActive: Bool
     
-    // 顶部日期改成年加月 (yyyy-MM)
     var currentStorageKey: String {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "zh_Hans_CN")
@@ -19,7 +18,7 @@ struct EditRecordView: View {
         NavigationView {
             VStack(spacing: 0) {
                 Form {
-                    Section(header: Text("选择年月")) {
+                    Section(header: Text("选择录入年月")) {
                         HStack {
                             Text("年月：")
                             DatePicker("", selection: $mainDate, displayedComponents: [.date])
@@ -33,58 +32,68 @@ struct EditRecordView: View {
                         }
                     }
                     
-                    Section(header: Text("设置截止日、网格与独立备注")) {
+                    Section(header: Text("每日数据录入（日期/格子/备注 分行隔离）")) {
                         ForEach(0..<rows.count, id: \.self) { index in
-                            VStack(alignment: .leading, spacing: 6) {
+                            VStack(alignment: .leading, spacing: 8) {
+                                // 第一行：自定义日期范围 (如 8月3日 - 8月6日) + 分值
                                 HStack {
-                                    // 截止日期（只展示与设置到具体某一天）
-                                    DatePicker("", selection: $rows[index].rowDate, displayedComponents: .date)
+                                    Text("起止:")
+                                        .font(.caption)
+                                        .foregroundColor(.gray)
+                                    
+                                    DatePicker("", selection: $rows[index].startDate, displayedComponents: .date)
+                                        .environment(\.locale, Locale(identifier: "zh_Hans_CN"))
+                                        .labelsHidden()
+                                        .scaleEffect(0.85)
+                                    
+                                    Text("-").font(.caption).foregroundColor(.gray)
+                                    
+                                    DatePicker("", selection: $rows[index].endDate, displayedComponents: .date)
                                         .environment(\.locale, Locale(identifier: "zh_Hans_CN"))
                                         .labelsHidden()
                                         .scaleEffect(0.85)
                                     
                                     Spacer()
                                     
-                                    // 5 交易日网格
-                                    HStack(spacing: 3) {
-                                        ForEach(0..<5, id: \.self) { col in
-                                            Button(action: {
-                                                isInputActive = false
-                                                toggleGridStatus(row: index, col: col)
-                                            }) {
-                                                Text(rows[index].grid[col].rawValue)
-                                                    .font(.system(size: 10, weight: .bold))
-                                                    .foregroundColor(.white)
-                                                    .frame(maxWidth: .infinity, minHeight: 32)
-                                                    .background(rows[index].grid[col].color)
-                                                    .cornerRadius(5)
-                                            }
-                                            .buttonStyle(PlainButtonStyle())
-                                        }
-                                    }
-                                    
-                                    // 右侧分值
                                     TextField("分值", value: $rows[index].score, format: .number)
                                         .keyboardType(.decimalPad)
                                         .focused($isInputActive)
                                         .multilineTextAlignment(.center)
-                                        .frame(width: 40, height: 32)
+                                        .frame(width: 45, height: 28)
                                         .background(Color(UIColor.tertiarySystemFill))
                                         .cornerRadius(5)
                                 }
                                 
-                                // 备注单独占据独立一行，绝不挤在一块
-                                TextField("输入该行专属备注（如: 操作心得/关注个股）...", text: $rows[index].rowRemark)
+                                // 第二行：涨幅格子单独占据一行
+                                HStack(spacing: 4) {
+                                    ForEach(0..<5, id: \.self) { col in
+                                        Button(action: {
+                                            isInputActive = false
+                                            toggleGridStatus(row: index, col: col)
+                                        }) {
+                                            Text(rows[index].grid[col].rawValue)
+                                                .font(.system(size: 11, weight: .bold))
+                                                .foregroundColor(.white)
+                                                .frame(maxWidth: .infinity, minHeight: 32)
+                                                .background(rows[index].grid[col].color)
+                                                .cornerRadius(6)
+                                        }
+                                        .buttonStyle(PlainButtonStyle())
+                                    }
+                                }
+                                
+                                // 第三行：备注单独占据一行
+                                TextField("输入该条目备注...", text: $rows[index].rowRemark)
                                     .font(.system(size: 12))
                                     .textFieldStyle(.roundedBorder)
                                     .focused($isInputActive)
                             }
-                            .padding(.vertical, 4)
+                            .padding(.vertical, 6)
                         }
                     }
                 }
                 
-                // 实体按钮
+                // 底部保存/清空按钮
                 VStack(spacing: 10) {
                     HStack(spacing: 15) {
                         Button(action: resetForm) {
@@ -131,7 +140,6 @@ struct EditRecordView: View {
                         .fontWeight(.bold)
                 }
             }
-            .withFloatingTHSButton()
         }
     }
     

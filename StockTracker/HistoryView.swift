@@ -1,14 +1,15 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct HistoryView: View {
     @ObservedObject var storage = StorageManager.shared
     @State private var searchText = ""
     @State private var selectedRecordForDetail: DailyRecord? = nil
     
-    // Zip 导入/导出控制
-    @State private var showingExporter = false
-    @State private var showingImporter = false
-    @State private var exportZipDoc: ZipDocument? = nil
+    // 备份控制
+    @State private var shareURL: URL? = nil
+    @State private var showShareSheet = false
+    @State private var showImporter = false
     @State private var alertMessage = ""
     @State private var showAlert = false
     
@@ -39,13 +40,13 @@ struct HistoryView: View {
         NavigationView {
             VStack {
                 List {
-                    Section(header: Text("备份与恢复操作")) {
+                    Section(header: Text("备份与恢复")) {
                         HStack(spacing: 12) {
-                            // 1. Zip 导出备份
-                            Button(action: exportBackupZip) {
+                            // 1. 系统分享导出 Zip
+                            Button(action: exportAndShareZip) {
                                 HStack {
                                     Image(systemName: "square.and.arrow.up")
-                                    Text("导出 Zip 备份文件")
+                                    Text("分享导出 Zip 备份")
                                 }
                                 .font(.system(size: 13, weight: .bold))
                                 .foregroundColor(.white)
@@ -55,8 +56,8 @@ struct HistoryView: View {
                             }
                             .buttonStyle(PlainButtonStyle())
                             
-                            // 2. Zip 导入恢复
-                            Button(action: { showingImporter = true }) {
+                            // 2. 导入 Zip 文件恢复
+                            Button(action: { showImporter = true }) {
                                 HStack {
                                     Image(systemName: "square.and.arrow.down")
                                     Text("导入 Zip 恢复")
@@ -72,7 +73,7 @@ struct HistoryView: View {
                         .padding(.vertical, 4)
                     }
                     
-                    Section(header: Text("历史列表 (点击可查看详情与独立备注)")) {
+                    Section(header: Text("历史列表 (点击任意卡片查看详情)")) {
                         ForEach(filteredRecords) { record in
                             VStack(alignment: .leading, spacing: 6) {
                                 HStack {
@@ -85,7 +86,6 @@ struct HistoryView: View {
                                         .foregroundColor(.secondary)
                                 }
                                 
-                                // 显示所有独立行的备注
                                 let remarks = record.rows.map { $0.rowRemark }.filter { !$0.isEmpty }
                                 if !remarks.isEmpty {
                                     VStack(alignment: .leading, spacing: 2) {
@@ -101,7 +101,6 @@ struct HistoryView: View {
                                     .cornerRadius(4)
                                 }
                                 
-                                // 网格缩略图
                                 VStack(spacing: 2) {
                                     ForEach(record.rows.prefix(3)) { row in
                                         HStack(spacing: 3) {
@@ -137,44 +136,34 @@ struct HistoryView: View {
             .sheet(item: $selectedRecordForDetail) { record in
                 RecordDetailSheet(record: record)
             }
-            // 导出备份文档构建器
-            .fileExporter(isPresented: $showingExporter, document: exportZipDoc, contentType: .zip, defaultFilename: "SunnyRain_Backup_\(Int(Date().timeIntervalSince1970)).zip") { result in
-                switch result {
-                case .success:
-                    alertMessage = "导出 Zip 备份文件成功！"
-                case .failure(let err):
-                    alertMessage = "导出失败: \(err.localizedDescription)"
+            .sheet(isPresented: $showShareSheet) {
+                if let url = shareURL {
+                    ShareSheet(activityItems: [url])
                 }
-                showAlert = true
             }
-            // 导入备份文档选择器
-            .fileImporter(isPresented: $showingImporter, allowedContentTypes: [.zip, .archive, .json]) { result in
+            .fileImporter(isPresented: $showImporter, allowedContentTypes: [.zip, .archive, .item]) { result in
                 switch result {
                 case .success(let url):
-                    if url.startAccessingSecurityScopedResource() {
-                        defer { url.stopAccessingSecurityScopedResource() }
-                        if let data = try? Data(contentsOf: url), storage.importBackupFromData(data) {
-                            alertMessage = "导入并恢复 Zip 数据成功！"
-                        } else {
-                            alertMessage = "导入失败：格式不匹配或文件已损坏。"
-                        }
+                    if storage.importFromURL(url) {
+                        alertMessage = "恢复备份数据成功！"
+                    } else {
+                        alertMessage = "导入失败：格式不匹配或 Zip 文件无效。"
                     }
                 case .failure(let err):
-                    alertMessage = "选择文件失败: \(err.localizedDescription)"
+                    alertMessage = "读取文件失败: \(err.localizedDescription)"
                 }
                 showAlert = true
             }
             .alert(alertMessage, isPresented: $showAlert) {
                 Button("确定", role: .cancel) { }
             }
-            .withFloatingTHSButton()
         }
     }
     
-    private func exportBackupZip() {
-        if let zipData = storage.generateBackupZipData() {
-            self.exportZipDoc = ZipDocument(data: zipData)
-            self.showingExporter = true
+    private func exportAndShareZip() {
+        if let url = storage.generateZipFileURL() {
+            self.shareURL = url
+            self.showShareSheet = true
         } else {
             alertMessage = "生成备份文件失败"
             showAlert = true

@@ -4,10 +4,10 @@ struct RecordDetailSheet: View {
     let record: DailyRecord
     @Environment(\.dismiss) var dismiss
     
-    private func formatDateMMdd(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MM-dd"
-        return formatter.string(from: date)
+    private func formatDateRange(start: Date, end: Date) -> String {
+        let f = DateFormatter()
+        f.dateFormat = "M月d日"
+        return "\(f.string(from: start)) - \(f.string(from: end))"
     }
     
     private func formatScore(_ score: Double) -> String {
@@ -18,9 +18,9 @@ struct RecordDetailSheet: View {
         NavigationView {
             ScrollView {
                 VStack(spacing: 16) {
-                    // 涨幅汇总卡片
+                    // 涨跌概览卡片
                     VStack(spacing: 8) {
-                        Text("涨幅情况汇总")
+                        Text("涨跌汇总统计")
                             .font(.headline)
                             .foregroundColor(.gray)
                         
@@ -50,37 +50,38 @@ struct RecordDetailSheet: View {
                     .background(Color(UIColor.secondarySystemGroupedBackground))
                     .cornerRadius(12)
                     
-                    // 详细网格与独行备注展示
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("详细明细与备注").font(.headline).padding(.horizontal)
+                    // 独行布局展示
+                    VStack(alignment: .leading, spacing: 14) {
+                        Text("明细情况").font(.headline).padding(.horizontal)
                         
                         ForEach(Array(record.rows.enumerated()), id: \.offset) { index, row in
-                            VStack(alignment: .leading, spacing: 6) {
+                            VStack(alignment: .leading, spacing: 8) {
+                                // 1. 日期区间与分值独立第一行
                                 HStack {
-                                    Text("截止日期: \(formatDateMMdd(row.rowDate))")
+                                    Text("日期：\(formatDateRange(start: row.startDate, end: row.endDate))")
                                         .font(.subheadline)
                                         .fontWeight(.bold)
                                         .foregroundColor(.blue)
                                     Spacer()
-                                    Text("分值: \(formatScore(row.score))")
+                                    Text("分值：\(formatScore(row.score))")
                                         .font(.subheadline)
                                         .fontWeight(.semibold)
                                 }
                                 
-                                // 5 交易日网格
+                                // 2. 涨跌格子独立第二行
                                 HStack(spacing: 4) {
                                     ForEach(0..<5, id: \.self) { col in
                                         let status = col < row.grid.count ? row.grid[col] : .smallUp
                                         Text(status.rawValue)
                                             .font(.system(size: 11, weight: .bold))
                                             .foregroundColor(.white)
-                                            .frame(maxWidth: .infinity, minHeight: 30)
+                                            .frame(maxWidth: .infinity, minHeight: 32)
                                             .background(status.color)
-                                            .cornerRadius(5)
+                                            .cornerRadius(6)
                                     }
                                 }
                                 
-                                // 备注单独占据独立一行，避免挤压
+                                // 3. 备注独立第三行
                                 if !row.rowRemark.isEmpty {
                                     HStack(alignment: .top) {
                                         Image(systemName: "square.and.pencil")
@@ -90,7 +91,7 @@ struct RecordDetailSheet: View {
                                             .font(.caption)
                                             .foregroundColor(.secondary)
                                     }
-                                    .padding(6)
+                                    .padding(8)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                     .background(Color.orange.opacity(0.08))
                                     .cornerRadius(6)
@@ -99,14 +100,13 @@ struct RecordDetailSheet: View {
                             .padding()
                             .background(Color(UIColor.systemBackground))
                             .cornerRadius(10)
-                            .shadow(color: Color.black.opacity(0.03), radius: 3, x: 0, y: 1)
                         }
                     }
                 }
                 .padding()
             }
             .background(Color(UIColor.systemGroupedBackground))
-            .navigationTitle("晴雨板详情 (\(record.recordKey))")
+            .navigationTitle("晴雨板明细 (\(record.recordKey))")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {

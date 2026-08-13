@@ -8,7 +8,7 @@ struct DashboardView: View {
     var currentDateKey: String {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "zh_Hans_CN")
-        formatter.dateFormat = "yyyy-MM" // 顶部年-月
+        formatter.dateFormat = "yyyy-MM"
         return formatter.string(from: selectedDate)
     }
     
@@ -19,10 +19,10 @@ struct DashboardView: View {
         )
     }
     
-    private func formatDateMMdd(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MM-dd"
-        return formatter.string(from: date)
+    private func formatDateRange(start: Date, end: Date) -> String {
+        let f = DateFormatter()
+        f.dateFormat = "M.d"
+        return "\(f.string(from: start))-\(f.string(from: end))"
     }
     
     private func formatScore(_ score: Double) -> String {
@@ -49,45 +49,36 @@ struct DashboardView: View {
                 .padding()
                 .background(Color(UIColor.systemGroupedBackground))
                 
-                // 网格展示（可点击整块查看备注）
+                // 看板主视图
                 List {
-                    Section(header: HStack {
-                        Text("截止日").frame(width: 55, alignment: .leading)
-                        HStack {
-                            Text("周一").frame(maxWidth: .infinity)
-                            Text("周二").frame(maxWidth: .infinity)
-                            Text("周三").frame(maxWidth: .infinity)
-                            Text("周四").frame(maxWidth: .infinity)
-                            Text("周五").frame(maxWidth: .infinity)
-                        }
-                        Text("分值").frame(width: 35, alignment: .trailing)
-                    }.font(.caption).foregroundColor(.gray)) {
+                    Section(header: Text("点击卡片可查看完整备注与详情").font(.caption)) {
                         ForEach(currentRecord.rows) { row in
-                            VStack(alignment: .leading, spacing: 4) {
+                            VStack(alignment: .leading, spacing: 6) {
+                                // 1. 日期区间与分值第一行
                                 HStack {
-                                    Text(formatDateMMdd(row.rowDate))
-                                        .font(.system(size: 11, weight: .bold))
-                                        .frame(width: 55, alignment: .leading)
-                                    
-                                    HStack(spacing: 3) {
-                                        ForEach(0..<5, id: \.self) { col in
-                                            let status = col < row.grid.count ? row.grid[col] : .smallUp
-                                            Text(status.rawValue)
-                                                .font(.system(size: 10, weight: .bold))
-                                                .foregroundColor(.white)
-                                                .frame(maxWidth: .infinity, minHeight: 30)
-                                                .background(status.color)
-                                                .cornerRadius(5)
-                                        }
-                                    }
-                                    
-                                    Text(formatScore(row.score))
-                                        .font(.system(.caption, design: .monospaced))
-                                        .fontWeight(.semibold)
-                                        .frame(width: 35, alignment: .trailing)
+                                    Text(formatDateRange(start: row.startDate, end: row.endDate))
+                                        .font(.system(size: 12, weight: .bold))
+                                        .foregroundColor(.blue)
+                                    Spacer()
+                                    Text("分值: \(formatScore(row.score))")
+                                        .font(.system(size: 12, weight: .semibold))
+                                        .foregroundColor(.gray)
                                 }
                                 
-                                // 若有备注，显示简短提示
+                                // 2. 涨幅格子独立第二行
+                                HStack(spacing: 4) {
+                                    ForEach(0..<5, id: \.self) { col in
+                                        let status = col < row.grid.count ? row.grid[col] : .smallUp
+                                        Text(status.rawValue)
+                                            .font(.system(size: 10, weight: .bold))
+                                            .foregroundColor(.white)
+                                            .frame(maxWidth: .infinity, minHeight: 28)
+                                            .background(status.color)
+                                            .cornerRadius(5)
+                                    }
+                                }
+                                
+                                // 3. 备注独立第三行
                                 if !row.rowRemark.isEmpty {
                                     Text("备注: \(row.rowRemark)")
                                         .font(.system(size: 10))
@@ -95,7 +86,7 @@ struct DashboardView: View {
                                         .lineLimit(1)
                                 }
                             }
-                            .padding(.vertical, 2)
+                            .padding(.vertical, 4)
                             .contentShape(Rectangle())
                             .onTapGesture {
                                 showingDetailSheet = true
@@ -105,7 +96,7 @@ struct DashboardView: View {
                 }
                 .listStyle(.insetGrouped)
                 
-                // 底部统计
+                // 底部 4 统计项
                 VStack(spacing: 6) {
                     HStack {
                         Text("大涨: \(currentRecord.bigUpCount)").foregroundColor(GridStatus.bigUp.color)
@@ -119,7 +110,7 @@ struct DashboardView: View {
                     .font(.caption)
                     .fontWeight(.bold)
                     
-                    Button("查看完整晴雨板与备注详情") {
+                    Button("查看详细明细") {
                         showingDetailSheet = true
                     }
                     .font(.caption)
@@ -137,7 +128,6 @@ struct DashboardView: View {
             .sheet(isPresented: $showingDetailSheet) {
                 RecordDetailSheet(record: currentRecord)
             }
-            .withFloatingTHSButton()
         }
     }
 }
