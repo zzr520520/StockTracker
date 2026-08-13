@@ -100,9 +100,9 @@ struct EditRecordView: View {
                                             toggleGridStatus(row: index, col: col)
                                         }) {
                                             Text(rows[index].grid[col].rawValue)
-                                                .font(.system(size: 12, weight: .bold))
+                                                .font(.system(size: 16, weight: .bold))
                                                 .foregroundColor(.white)
-                                                .frame(maxWidth: .infinity, minHeight: 38)
+                                                .frame(maxWidth: .infinity, minHeight: 44)
                                                 .background(rows[index].grid[col].color)
                                                 .cornerRadius(6)
                                         }

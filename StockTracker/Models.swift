@@ -168,9 +168,23 @@ class StorageManager: ObservableObject {
         }
     }
     
-    // 生成 JSON 备份数据（用于 fileExporter）
+    // 生成 JSON 备份数据
     func generateBackupData() -> Data? {
         return try? JSONEncoder().encode(records)
+    }
+    
+    // 生成 JSON 备份字符串（用于剪贴板复制）
+    func generateBackupString() -> String? {
+        guard let data = generateBackupData() else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+    
+    // 从 JSON 字符串恢复（用于剪贴板粘贴恢复）
+    func importFromString(_ str: String) -> Bool {
+        // 去除首尾空白
+        let trimmed = str.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let data = trimmed.data(using: .utf8) else { return false }
+        return importFromData(data)
     }
     
     // 从 JSON 数据恢复
@@ -181,20 +195,6 @@ class StorageManager: ObservableObject {
             return true
         }
         return false
-    }
-    
-    // 从文件 URL 恢复
-    func importFromURL(_ url: URL) -> Bool {
-        guard url.startAccessingSecurityScopedResource() else {
-            return decodeAndSave(from: url)
-        }
-        defer { url.stopAccessingSecurityScopedResource() }
-        return decodeAndSave(from: url)
-    }
-    
-    private func decodeAndSave(from url: URL) -> Bool {
-        guard let data = try? Data(contentsOf: url) else { return false }
-        return importFromData(data)
     }
 }
 
