@@ -44,60 +44,65 @@ struct EditRecordView: View {
                 
                 // 2. 独立白底卡片风格的新增数据列表
                 ScrollView {
-                    VStack(spacing: 14) {
+                    VStack(spacing: 10) {
                         ForEach(0..<rows.count, id: \.self) { index in
                             let label = weekLabels[index]
                             
                             // 单周独立白底卡片
-                            VStack(alignment: .leading, spacing: 10) {
+                            VStack(alignment: .leading, spacing: 6) {
+                                // 第一行：周标签 + 分值
                                 HStack {
                                     Text("【\(label)】")
                                         .font(.subheadline)
                                         .fontWeight(.bold)
                                         .foregroundColor(.blue)
-                                    
-                                    // 日期选择 + 自动设为 +4 天
+                                    Spacer()
+                                    Text("分值:")
+                                        .font(.caption)
+                                        .foregroundColor(.gray)
+                                    TextField("0", value: $rows[index].score, format: .number)
+                                        .keyboardType(.decimalPad)
+                                        .focused($isInputActive)
+                                        .multilineTextAlignment(.center)
+                                        .frame(width: 40, height: 26)
+                                        .background(Color(UIColor.tertiarySystemFill))
+                                        .cornerRadius(5)
+                                }
+                                
+                                // 第二行：起止日期 + 中间横杆
+                                HStack(spacing: 4) {
                                     DatePicker("", selection: $rows[index].startDate, displayedComponents: .date)
                                         .environment(\.locale, Locale(identifier: "zh_Hans_CN"))
                                         .labelsHidden()
-                                        .scaleEffect(0.85)
+                                        .scaleEffect(0.8)
                                         .onChange(of: rows[index].startDate) { newStart in
                                             if let autoEnd = Calendar.current.date(byAdding: .day, value: 4, to: newStart) {
                                                 rows[index].endDate = autoEnd
                                             }
                                         }
                                     
-                                    Text("━")
-                                        .font(.caption)
-                                        .foregroundColor(.gray)
+                                    // 中间横杆
+                                    Rectangle()
+                                        .fill(Color.gray.opacity(0.4))
+                                        .frame(width: 16, height: 2)
                                     
                                     DatePicker("", selection: $rows[index].endDate, displayedComponents: .date)
                                         .environment(\.locale, Locale(identifier: "zh_Hans_CN"))
                                         .labelsHidden()
-                                        .scaleEffect(0.85)
-                                    
-                                    Spacer()
-                                    
-                                    TextField("分值", value: $rows[index].score, format: .number)
-                                        .keyboardType(.decimalPad)
-                                        .focused($isInputActive)
-                                        .multilineTextAlignment(.center)
-                                        .frame(width: 45, height: 28)
-                                        .background(Color(UIColor.tertiarySystemFill))
-                                        .cornerRadius(5)
+                                        .scaleEffect(0.8)
                                 }
                                 
-                                // 格子美化，隔开
-                                HStack(spacing: 6) {
+                                // 第三行：涨跌格子（增大）
+                                HStack(spacing: 5) {
                                     ForEach(0..<5, id: \.self) { col in
                                         Button(action: {
                                             isInputActive = false
                                             toggleGridStatus(row: index, col: col)
                                         }) {
                                             Text(rows[index].grid[col].rawValue)
-                                                .font(.system(size: 11, weight: .bold))
+                                                .font(.system(size: 12, weight: .bold))
                                                 .foregroundColor(.white)
-                                                .frame(maxWidth: .infinity, minHeight: 32)
+                                                .frame(maxWidth: .infinity, minHeight: 38)
                                                 .background(rows[index].grid[col].color)
                                                 .cornerRadius(6)
                                         }
@@ -105,9 +110,9 @@ struct EditRecordView: View {
                                     }
                                 }
                                 
-                                // 备注与独立按钮
-                                HStack {
-                                    TextField("输入本周备注...", text: $rows[index].rowRemark)
+                                // 第四行：备注 + 按钮
+                                HStack(spacing: 6) {
+                                    TextField("本周备注...", text: $rows[index].rowRemark)
                                         .font(.system(size: 12))
                                         .textFieldStyle(.roundedBorder)
                                         .focused($isInputActive)
@@ -116,10 +121,10 @@ struct EditRecordView: View {
                                         Text("重置")
                                             .font(.caption)
                                             .foregroundColor(.red)
-                                            .padding(.horizontal, 10)
-                                            .padding(.vertical, 6)
+                                            .padding(.horizontal, 8)
+                                            .padding(.vertical, 5)
                                             .background(Color.red.opacity(0.1))
-                                            .cornerRadius(6)
+                                            .cornerRadius(5)
                                     }
                                     .buttonStyle(PlainButtonStyle())
                                     
@@ -128,21 +133,23 @@ struct EditRecordView: View {
                                             .font(.caption)
                                             .fontWeight(.bold)
                                             .foregroundColor(.white)
-                                            .padding(.horizontal, 10)
-                                            .padding(.vertical, 6)
+                                            .padding(.horizontal, 8)
+                                            .padding(.vertical, 5)
                                             .background(Color.blue)
-                                            .cornerRadius(6)
+                                            .cornerRadius(5)
                                     }
                                     .buttonStyle(PlainButtonStyle())
                                 }
                             }
-                            .padding()
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
                             .background(Color(UIColor.systemBackground))
-                            .cornerRadius(12)
-                            .shadow(color: Color.black.opacity(0.04), radius: 4, x: 0, y: 2)
+                            .cornerRadius(10)
+                            .shadow(color: Color.black.opacity(0.04), radius: 3, x: 0, y: 1)
                         }
                     }
-                    .padding()
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
                 }
                 .background(Color(UIColor.systemGroupedBackground))
             }
