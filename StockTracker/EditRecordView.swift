@@ -2,15 +2,16 @@ import SwiftUI
 
 struct EditRecordView: View {
     @ObservedObject var storage = StorageManager.shared
-    @State private var mainDate = Date()
+    @State private var mainDate = Date() // 顶部年月
     @State private var rows: [DailyGridRow] = (1...6).map { _ in DailyGridRow() }
     @State private var showSaveAlert = false
     @FocusState private var isInputActive: Bool
     
+    // 顶部日期改成年加月 (yyyy-MM)
     var currentStorageKey: String {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "zh_Hans_CN")
-        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.dateFormat = "yyyy-MM"
         return formatter.string(from: mainDate)
     }
     
@@ -18,74 +19,72 @@ struct EditRecordView: View {
         NavigationView {
             VStack(spacing: 0) {
                 Form {
-                    Section(header: HStack {
-                        Text("主日期：")
-                        DatePicker("", selection: $mainDate, displayedComponents: .date)
-                            .environment(\.locale, Locale(identifier: "zh_Hans_CN"))
-                            .labelsHidden()
-                            .onChange(of: mainDate) { _ in loadExistingData() }
-                    }) {
-                        EmptyView()
+                    Section(header: Text("选择年月")) {
+                        HStack {
+                            Text("年月：")
+                            DatePicker("", selection: $mainDate, displayedComponents: [.date])
+                                .environment(\.locale, Locale(identifier: "zh_Hans_CN"))
+                                .labelsHidden()
+                                .onChange(of: mainDate) { _ in loadExistingData() }
+                            Spacer()
+                            Text(currentStorageKey)
+                                .font(.headline)
+                                .foregroundColor(.blue)
+                        }
                     }
                     
-                    Section(header: HStack {
-                        Text("左侧: 日期/备注").frame(width: 100, alignment: .leading)
-                        Text("周一~周五 网格").frame(maxWidth: .infinity)
-                        Text("分值").frame(width: 40, alignment: .trailing)
-                    }.font(.caption)) {
+                    Section(header: Text("设置截止日、网格与独立备注")) {
                         ForEach(0..<rows.count, id: \.self) { index in
-                            HStack(spacing: 6) {
-                                // 所有功能/控制全部置于最左侧
-                                VStack(alignment: .leading, spacing: 4) {
+                            VStack(alignment: .leading, spacing: 6) {
+                                HStack {
+                                    // 截止日期（只展示与设置到具体某一天）
                                     DatePicker("", selection: $rows[index].rowDate, displayedComponents: .date)
                                         .environment(\.locale, Locale(identifier: "zh_Hans_CN"))
                                         .labelsHidden()
                                         .scaleEffect(0.85)
-                                        .frame(width: 90, height: 24, alignment: .leading)
                                     
-                                    TextField("备注...", text: $rows[index].rowRemark)
-                                        .font(.system(size: 11))
-                                        .textFieldStyle(.plain)
-                                        .padding(2)
-                                        .background(Color(UIColor.tertiarySystemFill))
-                                        .cornerRadius(4)
-                                        .focused($isInputActive)
-                                }
-                                .frame(width: 95)
-                                
-                                // 中间：5 交易日点击网格
-                                HStack(spacing: 3) {
-                                    ForEach(0..<5, id: \.self) { col in
-                                        Button(action: {
-                                            isInputActive = false
-                                            toggleGridStatus(row: index, col: col)
-                                        }) {
-                                            Text(rows[index].grid[col].rawValue)
-                                                .font(.system(size: 10, weight: .bold))
-                                                .foregroundColor(.white)
-                                                .frame(maxWidth: .infinity, minHeight: 34)
-                                                .background(rows[index].grid[col].color)
-                                                .cornerRadius(5)
+                                    Spacer()
+                                    
+                                    // 5 交易日网格
+                                    HStack(spacing: 3) {
+                                        ForEach(0..<5, id: \.self) { col in
+                                            Button(action: {
+                                                isInputActive = false
+                                                toggleGridStatus(row: index, col: col)
+                                            }) {
+                                                Text(rows[index].grid[col].rawValue)
+                                                    .font(.system(size: 10, weight: .bold))
+                                                    .foregroundColor(.white)
+                                                    .frame(maxWidth: .infinity, minHeight: 32)
+                                                    .background(rows[index].grid[col].color)
+                                                    .cornerRadius(5)
+                                            }
+                                            .buttonStyle(PlainButtonStyle())
                                         }
-                                        .buttonStyle(PlainButtonStyle())
                                     }
+                                    
+                                    // 右侧分值
+                                    TextField("分值", value: $rows[index].score, format: .number)
+                                        .keyboardType(.decimalPad)
+                                        .focused($isInputActive)
+                                        .multilineTextAlignment(.center)
+                                        .frame(width: 40, height: 32)
+                                        .background(Color(UIColor.tertiarySystemFill))
+                                        .cornerRadius(5)
                                 }
                                 
-                                // 右侧：分值输入
-                                TextField("分值", value: $rows[index].score, format: .number)
-                                    .keyboardType(.decimalPad)
+                                // 备注单独占据独立一行，绝不挤在一块
+                                TextField("输入该行专属备注（如: 操作心得/关注个股）...", text: $rows[index].rowRemark)
+                                    .font(.system(size: 12))
+                                    .textFieldStyle(.roundedBorder)
                                     .focused($isInputActive)
-                                    .multilineTextAlignment(.center)
-                                    .frame(width: 40, height: 34)
-                                    .background(Color(UIColor.tertiarySystemFill))
-                                    .cornerRadius(5)
                             }
                             .padding(.vertical, 4)
                         }
                     }
                 }
                 
-                // 底部实体保存/重置按钮
+                // 实体按钮
                 VStack(spacing: 10) {
                     HStack(spacing: 15) {
                         Button(action: resetForm) {
