@@ -7,10 +7,12 @@ struct RecordDetailSheet: View {
     
     @State private var currentRecord: DailyRecord = DailyRecord(recordKey: "", rows: [])
     
+    private let weekLabels = ["第一周", "第二周", "第三周", "第四周", "第五周", "第六周", "第七周", "第八周"]
+    
     private func formatDateRange(start: Date, end: Date) -> String {
         let f = DateFormatter()
-        f.dateFormat = "M月d日"
-        return "\(f.string(from: start)) - \(f.string(from: end))"
+        f.dateFormat = "MM-dd"
+        return "\(f.string(from: start))  ━  \(f.string(from: end))"
     }
     
     private func formatScore(_ score: Double) -> String {
@@ -21,9 +23,9 @@ struct RecordDetailSheet: View {
         NavigationView {
             ScrollView {
                 VStack(spacing: 16) {
-                    // 涨跌汇总统计
+                    // 汇总区域
                     VStack(spacing: 8) {
-                        Text("涨跌汇总统计 (共8行/2个月)")
+                        Text("当月涨跌汇总统计")
                             .font(.headline)
                             .foregroundColor(.gray)
                         
@@ -53,15 +55,16 @@ struct RecordDetailSheet: View {
                     .background(Color(UIColor.secondarySystemGroupedBackground))
                     .cornerRadius(12)
                     
-                    // 详细列表展示与可编辑备注
+                    // 周明细列表
                     VStack(alignment: .leading, spacing: 14) {
-                        Text("明细与备注修改").font(.headline).padding(.horizontal)
+                        Text("周明细与备注").font(.headline).padding(.horizontal)
                         
                         ForEach(0..<currentRecord.rows.count, id: \.self) { index in
+                            let label = index < weekLabels.count ? weekLabels[index] : "第\(index+1)周"
                             VStack(alignment: .leading, spacing: 8) {
                                 HStack {
-                                    Text("第 \(index + 1) 行 (日期: \(formatDateRange(start: currentRecord.rows[index].startDate, end: currentRecord.rows[index].endDate)))")
-                                        .font(.caption)
+                                    Text("【\(label)】 \(formatDateRange(start: currentRecord.rows[index].startDate, end: currentRecord.rows[index].endDate))")
+                                        .font(.subheadline)
                                         .fontWeight(.bold)
                                         .foregroundColor(.blue)
                                     Spacer()
@@ -70,25 +73,24 @@ struct RecordDetailSheet: View {
                                         .foregroundColor(.gray)
                                 }
                                 
-                                // 涨跌格子
-                                HStack(spacing: 4) {
+                                // 格子美观美化间隔
+                                HStack(spacing: 6) {
                                     ForEach(0..<5, id: \.self) { col in
                                         let status = col < currentRecord.rows[index].grid.count ? currentRecord.rows[index].grid[col] : .smallUp
                                         Text(status.rawValue)
                                             .font(.system(size: 11, weight: .bold))
                                             .foregroundColor(.white)
-                                            .frame(maxWidth: .infinity, minHeight: 30)
+                                            .frame(maxWidth: .infinity, minHeight: 32)
                                             .background(status.color)
                                             .cornerRadius(6)
                                     }
                                 }
                                 
-                                // 实时修改备注权限
                                 HStack {
                                     Image(systemName: "pencil")
                                         .font(.caption)
                                         .foregroundColor(.orange)
-                                    TextField("在此处修改编辑本行备注...", text: $currentRecord.rows[index].rowRemark)
+                                    TextField("编辑本周备注...", text: $currentRecord.rows[index].rowRemark)
                                         .font(.system(size: 12))
                                         .textFieldStyle(.roundedBorder)
                                         .onChange(of: currentRecord.rows[index].rowRemark) { _ in
@@ -111,7 +113,7 @@ struct RecordDetailSheet: View {
                 if let rec = storage.records[recordKey] {
                     self.currentRecord = rec
                 } else {
-                    self.currentRecord = DailyRecord(recordKey: recordKey, rows: (1...8).map { _ in DailyGridRow() })
+                    self.currentRecord = DailyRecord(recordKey: recordKey, rows: (1...4).map { _ in DailyGridRow() })
                 }
             }
             .toolbar {

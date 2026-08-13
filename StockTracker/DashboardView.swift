@@ -5,6 +5,16 @@ struct DashboardView: View {
     @State private var selectedDate = Date()
     @State private var showingDetailSheet = false
     
+    private let weekLabels = ["第一周", "第二周", "第三周", "第四周", "第五周", "第六周"]
+    
+    // 只保留年和月 (如 2026年 09月)
+    var currentYearMonthString: String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_Hans_CN")
+        formatter.dateFormat = "yyyy年 MM月"
+        return formatter.string(from: selectedDate)
+    }
+    
     var currentDateKey: String {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "zh_Hans_CN")
@@ -12,18 +22,18 @@ struct DashboardView: View {
         return formatter.string(from: selectedDate)
     }
     
-    // 固定 8 行（前4行当月，后4行下个月，共2个月）
+    // 仅显示当月的数据（默认 4 周）
     var currentRecord: DailyRecord {
         storage.records[currentDateKey] ?? DailyRecord(
             recordKey: currentDateKey,
-            rows: (1...8).map { _ in DailyGridRow() }
+            rows: (1...4).map { _ in DailyGridRow() }
         )
     }
     
     private func formatDateRange(start: Date, end: Date) -> String {
         let f = DateFormatter()
-        f.dateFormat = "M.d"
-        return "\(f.string(from: start))-\(f.string(from: end))"
+        f.dateFormat = "MM-dd"
+        return "\(f.string(from: start)) ━ \(f.string(from: end))"
     }
     
     private func formatScore(_ score: Double) -> String {
@@ -33,16 +43,16 @@ struct DashboardView: View {
     var body: some View {
         NavigationView {
             VStack(spacing: 0) {
-                // 顶部年月选择 Header
+                // 1. 顶部年月选择 Header (只显示年和月)
                 HStack {
-                    DatePicker("选择年月", selection: $selectedDate, displayedComponents: [.date])
+                    DatePicker("", selection: $selectedDate, displayedComponents: [.date])
                         .datePickerStyle(.compact)
                         .labelsHidden()
                         .environment(\.locale, Locale(identifier: "zh_Hans_CN"))
                     
                     Spacer()
                     
-                    Text(currentDateKey)
+                    Text(currentYearMonthString)
                         .font(.title3)
                         .fontWeight(.bold)
                         .foregroundColor(.blue)
@@ -50,32 +60,34 @@ struct DashboardView: View {
                 .padding()
                 .background(Color(UIColor.systemGroupedBackground))
                 
-                // 8 行晴雨板展示（前4行为第1个月，后4行为第2个月）
+                // 2. 晴雨板列表（第一周 ~ 第四周）
                 List {
-                    Section(header: Text("晴雨板 (共 8 行 / 2 个月，点击可修改备注)").font(.caption)) {
+                    Section(header: Text("晴雨板看板 (当月) - 点击修改备注").font(.caption)) {
                         ForEach(0..<currentRecord.rows.count, id: \.self) { index in
                             let row = currentRecord.rows[index]
+                            let label = index < weekLabels.count ? weekLabels[index] : "第\(index+1)周"
+                            
                             VStack(alignment: .leading, spacing: 6) {
                                 HStack {
-                                    Text("【第 \(index + 1) 行】\(formatDateRange(start: row.startDate, end: row.endDate))")
-                                        .font(.system(size: 11, weight: .bold))
-                                        .foregroundColor(index < 4 ? .blue : .purple)
+                                    Text("【\(label)】  \(formatDateRange(start: row.startDate, end: row.endDate))")
+                                        .font(.system(size: 12, weight: .bold))
+                                        .foregroundColor(.blue)
                                     Spacer()
                                     Text("分值: \(formatScore(row.score))")
                                         .font(.system(size: 11, weight: .semibold))
                                         .foregroundColor(.gray)
                                 }
                                 
-                                // 涨跌格子
-                                HStack(spacing: 4) {
+                                // 格子美观间隔 (spacing: 6)
+                                HStack(spacing: 6) {
                                     ForEach(0..<5, id: \.self) { col in
                                         let status = col < row.grid.count ? row.grid[col] : .smallUp
                                         Text(status.rawValue)
                                             .font(.system(size: 10, weight: .bold))
                                             .foregroundColor(.white)
-                                            .frame(maxWidth: .infinity, minHeight: 28)
+                                            .frame(maxWidth: .infinity, minHeight: 30)
                                             .background(status.color)
-                                            .cornerRadius(5)
+                                            .cornerRadius(6)
                                     }
                                 }
                                 
@@ -96,7 +108,7 @@ struct DashboardView: View {
                 }
                 .listStyle(.insetGrouped)
                 
-                // 底部 4 指标统计
+                // 底部统计
                 VStack(spacing: 6) {
                     HStack {
                         Text("大涨: \(currentRecord.bigUpCount)").foregroundColor(GridStatus.bigUp.color)
@@ -110,7 +122,7 @@ struct DashboardView: View {
                     .font(.caption)
                     .fontWeight(.bold)
                     
-                    Button("查看与修改晴雨板备注") {
+                    Button("查看与修改当月详情备注") {
                         showingDetailSheet = true
                     }
                     .font(.caption)

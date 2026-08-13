@@ -70,7 +70,7 @@ struct HistoryView: View {
                         .padding(.vertical, 4)
                     }
                     
-                    Section(header: Text("历史月份列表 (点击查看或修改备注)")) {
+                    Section(header: Text("历史月份列表 (点击查看与编辑备注)")) {
                         ForEach(filteredRecords) { record in
                             VStack(alignment: .leading, spacing: 6) {
                                 HStack {

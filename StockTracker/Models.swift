@@ -23,28 +23,28 @@ enum GridStatus: String, Codable, CaseIterable {
 struct DailyGridRow: Identifiable, Codable {
     var id = UUID()
     var startDate: Date = Date() // 开始日期
-    var endDate: Date = Date()   // 结束日期
+    var endDate: Date = Date()   // 结束日期 (自动为 start + 4 天)
     var rowRemark: String = ""   // 独立备注
     var grid: [GridStatus]      // 5列涨跌格子
     var score: Double           // 分值
     
-    init(startDate: Date = Date(), endDate: Date = Date(), rowRemark: String = "", grid: [GridStatus] = Array(repeating: .smallUp, count: 5), score: Double = 0.0) {
+    init(startDate: Date = Date(), endDate: Date? = nil, rowRemark: String = "", grid: [GridStatus] = Array(repeating: .smallUp, count: 5), score: Double = 0.0) {
         self.id = UUID()
         self.startDate = startDate
-        self.endDate = endDate
+        self.endDate = endDate ?? Calendar.current.date(byAdding: .day, value: 4, to: startDate) ?? startDate
         self.rowRemark = rowRemark
         self.grid = grid
         self.score = score
     }
 }
 
-// 晴雨板主数据（固定 8 行，代表 2 个月）
+// 晴雨板主数据模型 (按 yyyy-MM 归档)
 struct DailyRecord: Identifiable, Codable {
     var id: String { recordKey }
     var recordKey: String // 格式: yyyy-MM
     var rows: [DailyGridRow]
     
-    // 统计大涨、小涨、大跌、小跌合计数量（用 for 循环避免编译器超时）
+    // 用 for 循环避免编译器超时
     var bigUpCount: Int {
         var count = 0
         for row in rows {
@@ -100,12 +100,12 @@ struct IdentifiableString: Identifiable {
     let value: String
 }
 
-// 持久化管理类
+// 数据持久化管理类
 class StorageManager: ObservableObject {
     static let shared = StorageManager()
     
     @Published var records: [String: DailyRecord] = [:]
-    private let recordsKey = "SunnyRainStorage_v7"
+    private let recordsKey = "SunnyRainStorage_v8"
     
     init() {
         loadData()
@@ -116,9 +116,8 @@ class StorageManager: ObservableObject {
         syncToDisk()
     }
     
-    // 独立保存单行数据
     func saveSingleRow(recordKey: String, rowIndex: Int, rowData: DailyGridRow) {
-        var current = records[recordKey] ?? DailyRecord(recordKey: recordKey, rows: (1...8).map { _ in DailyGridRow() })
+        var current = records[recordKey] ?? DailyRecord(recordKey: recordKey, rows: (1...4).map { _ in DailyGridRow() })
         if rowIndex < current.rows.count {
             current.rows[rowIndex] = rowData
             records[recordKey] = current
@@ -183,7 +182,6 @@ class StorageManager: ObservableObject {
         }
     }
     
-    // 读取与解包 Zip 恢复
     func importFromURL(_ url: URL) -> Bool {
         guard url.startAccessingSecurityScopedResource() else {
             return decodeAndSave(from: url)

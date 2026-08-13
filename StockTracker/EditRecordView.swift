@@ -2,13 +2,22 @@ import SwiftUI
 
 struct EditRecordView: View {
     @ObservedObject var storage = StorageManager.shared
-    @State private var mainDate = Date() // 顶部年月
-    @State private var rows: [DailyGridRow] = (1...8).map { _ in DailyGridRow() }
+    @State private var mainDate = Date()
+    @State private var rows: [DailyGridRow] = []
     @State private var alertMsg = ""
     @State private var showAlert = false
     @FocusState private var isInputActive: Bool
     
-    // 格式: yyyy-MM (年月)
+    private let weekLabels = ["第一周", "第二周", "第三周", "第四周"]
+    
+    // 仅显示年月格式 (如 2026年 09月)
+    var currentYearMonthString: String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_Hans_CN")
+        formatter.dateFormat = "yyyy年 MM月"
+        return formatter.string(from: mainDate)
+    }
+    
     var currentStorageKey: String {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "zh_Hans_CN")
@@ -20,43 +29,51 @@ struct EditRecordView: View {
         NavigationView {
             VStack(spacing: 0) {
                 Form {
-                    // 1. 顶部年月选择（调动自动联动换月）
-                    Section(header: Text("选择录入年月 (固定8行/2个月)")) {
+                    // 1. 顶部年月选择 (仅显示年和月，切换自动更新下属所有周)
+                    Section(header: Text("选择年月 (自动联动当月日期与数据)")) {
                         HStack {
-                            Text("年月：")
+                            Text("月份：")
                             DatePicker("", selection: $mainDate, displayedComponents: [.date])
+                                .datePickerStyle(.compact)
                                 .environment(\.locale, Locale(identifier: "zh_Hans_CN"))
                                 .labelsHidden()
                                 .onChange(of: mainDate) { _ in
-                                    // 自动调整联动月份并读取数据
-                                    loadExistingData()
+                                    updateRowsForSelectedMonth()
                                 }
                             Spacer()
-                            Text(currentStorageKey)
+                            Text(currentYearMonthString)
                                 .font(.headline)
                                 .foregroundColor(.blue)
                         }
                     }
                     
-                    // 2. 8 行录入（每行独立保存/重置，日期中间加横线 -）
-                    Section(header: Text("每行单独控制保存与重置")) {
+                    // 2. 4周数据录入（美观横线、隔开格子、单行保存重置）
+                    Section(header: Text("周数据录入（5天跨度自动校准）")) {
                         ForEach(0..<rows.count, id: \.self) { index in
+                            let label = index < weekLabels.count ? weekLabels[index] : "第\(index+1)周"
+                            
                             VStack(alignment: .leading, spacing: 8) {
-                                // 第一行：日期区间 (加横线 - ) + 分值
+                                // 第一行：周标签 + 起止日期 (加美观横线 ━ ) + 分值
                                 HStack {
-                                    Text("第 \(index + 1) 行:")
+                                    Text("【\(label)】")
                                         .font(.caption)
                                         .fontWeight(.bold)
-                                        .foregroundColor(index < 4 ? .blue : .purple)
+                                        .foregroundColor(.blue)
                                     
+                                    // 起始日期：修改后自动将截止日期设为 +4 天 (共5天)
                                     DatePicker("", selection: $rows[index].startDate, displayedComponents: .date)
                                         .environment(\.locale, Locale(identifier: "zh_Hans_CN"))
                                         .labelsHidden()
                                         .scaleEffect(0.85)
+                                        .onChange(of: rows[index].startDate) { newStart in
+                                            if let autoEnd = Calendar.current.date(byAdding: .day, value: 4, to: newStart) {
+                                                rows[index].endDate = autoEnd
+                                            }
+                                        }
                                     
-                                    // 中间加横线
-                                    Text(" - ")
-                                        .font(.subheadline)
+                                    // 美观分隔横杠
+                                    Text("━")
+                                        .font(.caption)
                                         .fontWeight(.bold)
                                         .foregroundColor(.gray)
                                     
@@ -76,8 +93,8 @@ struct EditRecordView: View {
                                         .cornerRadius(5)
                                 }
                                 
-                                // 第二行：涨跌格子独立一行
-                                HStack(spacing: 4) {
+                                // 第二行：涨跌格子（增加间距 spacing: 6，更美观隔开）
+                                HStack(spacing: 6) {
                                     ForEach(0..<5, id: \.self) { col in
                                         Button(action: {
                                             isInputActive = false
@@ -86,22 +103,21 @@ struct EditRecordView: View {
                                             Text(rows[index].grid[col].rawValue)
                                                 .font(.system(size: 11, weight: .bold))
                                                 .foregroundColor(.white)
-                                                .frame(maxWidth: .infinity, minHeight: 30)
+                                                .frame(maxWidth: .infinity, minHeight: 32)
                                                 .background(rows[index].grid[col].color)
-                                                .cornerRadius(5)
+                                                .cornerRadius(6)
                                         }
                                         .buttonStyle(PlainButtonStyle())
                                     }
                                 }
                                 
-                                // 第三行：备注独立一行 + 独立的保存与重置按钮
+                                // 第三行：备注 + 独立重置/保存按钮
                                 HStack {
-                                    TextField("输入本行备注...", text: $rows[index].rowRemark)
+                                    TextField("输入本周备注...", text: $rows[index].rowRemark)
                                         .font(.system(size: 12))
                                         .textFieldStyle(.roundedBorder)
                                         .focused($isInputActive)
                                     
-                                    // 单行单独重置按钮
                                     Button(action: { resetSingleRow(index: index) }) {
                                         Text("重置")
                                             .font(.caption2)
@@ -113,7 +129,6 @@ struct EditRecordView: View {
                                     }
                                     .buttonStyle(PlainButtonStyle())
                                     
-                                    // 单行单独保存按钮
                                     Button(action: { saveSingleRow(index: index) }) {
                                         Text("保存")
                                             .font(.caption2)
@@ -134,7 +149,7 @@ struct EditRecordView: View {
             }
             .navigationTitle("新增数据")
             .environment(\.locale, Locale(identifier: "zh_Hans_CN"))
-            .onAppear(perform: loadExistingData)
+            .onAppear(perform: updateRowsForSelectedMonth)
             .alert(alertMsg, isPresented: $showAlert) {
                 Button("确定", role: .cancel) { }
             }
@@ -158,28 +173,38 @@ struct EditRecordView: View {
         }
     }
     
-    private func loadExistingData() {
+    // 切换月份后，自动更替下属所有周的默认日期（5天一跨度）
+    private func updateRowsForSelectedMonth() {
         if let existing = storage.records[currentStorageKey] {
             self.rows = existing.rows
         } else {
-            self.rows = (1...8).map { _ in DailyGridRow() }
+            let cal = Calendar.current
+            let comp = cal.dateComponents([.year, .month], from: mainDate)
+            let firstDay = cal.date(from: comp) ?? mainDate
+            
+            var newRows: [DailyGridRow] = []
+            for i in 0..<4 {
+                if let start = cal.date(byAdding: .day, value: i * 7, to: firstDay),
+                   let end = cal.date(byAdding: .day, value: 4, to: start) {
+                    newRows.append(DailyGridRow(startDate: start, endDate: end))
+                }
+            }
+            self.rows = newRows
         }
     }
     
-    // 仅保存第 index 行的数据
     private func saveSingleRow(index: Int) {
         isInputActive = false
         storage.saveSingleRow(recordKey: currentStorageKey, rowIndex: index, rowData: rows[index])
-        alertMsg = "第 \(index + 1) 行保存成功！"
+        alertMsg = "【\(weekLabels[index])】保存成功！"
         showAlert = true
     }
     
-    // 仅重置第 index 行的数据
     private func resetSingleRow(index: Int) {
         isInputActive = false
         rows[index] = DailyGridRow()
         storage.saveSingleRow(recordKey: currentStorageKey, rowIndex: index, rowData: rows[index])
-        alertMsg = "第 \(index + 1) 行已重置！"
+        alertMsg = "【\(weekLabels[index])】已重置！"
         showAlert = true
     }
 }
