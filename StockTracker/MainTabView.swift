@@ -8,9 +8,6 @@ struct MainTabView: View {
             
             EditRecordView()
                 .tabItem { Label("新增数据", systemImage: "square.and.pencil") }
-            
-            HistoryView()
-                .tabItem { Label("历史记录", systemImage: "clock.arrow.circlepath") }
         }
     }
 }

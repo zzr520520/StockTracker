@@ -158,16 +158,22 @@ class StorageManager: ObservableObject {
         }
     }
     
-    func generateZipFileURL() -> URL? {
-        guard let jsonData = try? JSONEncoder().encode(records) else { return nil }
-        let tempDir = FileManager.default.temporaryDirectory
-        let fileURL = tempDir.appendingPathComponent("SunnyRain_Backup_\(Int(Date().timeIntervalSince1970)).json")
-        do {
-            try jsonData.write(to: fileURL)
-            return fileURL
-        } catch { return nil }
+    // 生成 JSON 备份数据（用于 fileExporter）
+    func generateBackupData() -> Data? {
+        return try? JSONEncoder().encode(records)
     }
     
+    // 从 JSON 数据恢复
+    func importFromData(_ data: Data) -> Bool {
+        if let decoded = try? JSONDecoder().decode([String: DailyRecord].self, from: data) {
+            self.records = decoded
+            syncToDisk()
+            return true
+        }
+        return false
+    }
+    
+    // 从文件 URL 恢复
     func importFromURL(_ url: URL) -> Bool {
         guard url.startAccessingSecurityScopedResource() else {
             return decodeAndSave(from: url)
@@ -178,21 +184,7 @@ class StorageManager: ObservableObject {
     
     private func decodeAndSave(from url: URL) -> Bool {
         guard let data = try? Data(contentsOf: url) else { return false }
-        if let decoded = try? JSONDecoder().decode([String: DailyRecord].self, from: data) {
-            self.records = decoded
-            syncToDisk()
-            return true
-        }
-        if let start = data.range(of: "{".data(using: .utf8)!),
-           let end = data.range(of: "}".data(using: .utf8)!, options: .backwards) {
-            let jsonSlice = data.subdata(in: start.lowerBound..<end.upperBound)
-            if let decoded = try? JSONDecoder().decode([String: DailyRecord].self, from: jsonSlice) {
-                self.records = decoded
-                syncToDisk()
-                return true
-            }
-        }
-        return false
+        return importFromData(data)
     }
 }
 
