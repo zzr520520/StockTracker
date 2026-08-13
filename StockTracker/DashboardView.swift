@@ -3,7 +3,7 @@ import SwiftUI
 struct DashboardView: View {
     @ObservedObject var storage = StorageManager.shared
     @State private var selectedDate = Date()
-    @State private var selectedStockCode: String = "" // 当前选中的股票代码，为空代表通用/大盘
+    @State private var selectedTagNote: String = ""
     
     var currentDateString: String {
         let formatter = DateFormatter()
@@ -12,14 +12,12 @@ struct DashboardView: View {
         return formatter.string(from: selectedDate)
     }
     
-    // 根据 日期 + 股票代码 获取专属记录
     var currentRecord: DailyRecord {
-        let key = "\(currentDateString)_\(selectedStockCode.isEmpty ? "GLOBAL" : selectedStockCode)"
+        let key = "\(currentDateString)_\(selectedTagNote.isEmpty ? "DEFAULT" : selectedTagNote)"
         return storage.records[key] ?? DailyRecord(
             dateString: currentDateString,
-            stockCode: selectedStockCode,
-            stockName: storage.favoriteStocks.first(where: { $0.code == selectedStockCode })?.name ?? "",
-            rows: (1...8).map { _ in DailyGridRow() }
+            tagNote: selectedTagNote,
+            rows: (1...6).map { _ in DailyGridRow() }
         )
     }
     
@@ -34,71 +32,66 @@ struct DashboardView: View {
     var body: some View {
         NavigationView {
             VStack(spacing: 0) {
-                // 1. 顶部日期与股票切换栏
-                VStack(spacing: 10) {
-                    HStack {
-                        DatePicker("日期", selection: $selectedDate, displayedComponents: .date)
-                            .datePickerStyle(.compact)
-                            .labelsHidden()
-                            .environment(\.locale, Locale(identifier: "zh_Hans_CN"))
-                        
-                        Spacer()
-                        
-                        // 切换要查看的股票看板
-                        Picker("选择股票", selection: $selectedStockCode) {
-                            Text("通用/大盘").tag("")
-                            ForEach(storage.favoriteStocks) { stock in
-                                Text("\(stock.name) (\(stock.code))").tag(stock.code)
-                            }
-                        }
-                        .pickerStyle(.menu)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Color.blue.opacity(0.1))
-                        .cornerRadius(8)
-                    }
+                // 1. 顶部日期与标注切换 Header
+                HStack {
+                    DatePicker("日期", selection: $selectedDate, displayedComponents: .date)
+                        .datePickerStyle(.compact)
+                        .labelsHidden()
+                        .environment(\.locale, Locale(identifier: "zh_Hans_CN"))
                     
-                    // 备注卡片展示
-                    if !currentRecord.remark.isEmpty {
-                        HStack {
-                            Image(systemName: "note.text")
-                                .foregroundColor(.gray)
-                            Text("备注：\(currentRecord.remark)")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                            Spacer()
+                    Spacer()
+                    
+                    // 动态显示当前可用的标注/标签
+                    Menu {
+                        Button("默认/通用") { selectedTagNote = "" }
+                        ForEach(Array(Set(storage.records.values.map { $0.tagNote })).filter { !$0.isEmpty }, id: \.self) { tag in
+                            Button(tag) { selectedTagNote = tag }
                         }
-                        .padding(8)
-                        .background(Color(UIColor.tertiarySystemFill))
-                        .cornerRadius(6)
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "tag.fill").font(.caption)
+                            Text(selectedTagNote.isEmpty ? "默认看板" : selectedTagNote)
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(Color.blue.opacity(0.12))
+                        .cornerRadius(8)
                     }
                 }
                 .padding()
                 .background(Color(UIColor.systemGroupedBackground))
                 
-                // 2. 网格看板数据
+                // 2. 5交易日（周一至周五）核心看板
                 List {
                     Section(header: HStack {
-                        Text("行号").frame(width: 35, alignment: .leading)
-                        Text("5列涨跌网格").frame(maxWidth: .infinity)
-                        Text("分值").frame(width: 50, alignment: .trailing)
+                        Text("行").frame(width: 25, alignment: .leading)
+                        HStack {
+                            Text("周一").frame(maxWidth: .infinity)
+                            Text("周二").frame(maxWidth: .infinity)
+                            Text("周三").frame(maxWidth: .infinity)
+                            Text("周四").frame(maxWidth: .infinity)
+                            Text("周五").frame(maxWidth: .infinity)
+                        }
+                        Text("分值").frame(width: 45, alignment: .trailing)
                     }.font(.caption).foregroundColor(.gray)) {
                         ForEach(Array(currentRecord.rows.enumerated()), id: \.offset) { index, row in
                             HStack {
                                 Text("\(index + 1)")
-                                    .font(.system(.body, design: .monospaced))
+                                    .font(.system(.caption, design: .monospaced))
                                     .fontWeight(.bold)
-                                    .foregroundColor(.secondary)
-                                    .frame(width: 35, alignment: .leading)
+                                    .foregroundColor(.gray)
+                                    .frame(width: 25, alignment: .leading)
                                 
-                                HStack(spacing: 6) {
+                                HStack(spacing: 4) {
                                     ForEach(0..<5, id: \.self) { colIndex in
-                                        let status = colIndex < row.grid.count ? row.grid[colIndex] : .up
+                                        let status = colIndex < row.grid.count ? row.grid[colIndex] : .smallUp
                                         Text(status.rawValue)
-                                            .font(.system(size: 13, weight: .bold))
+                                            .font(.system(size: 11, weight: .bold))
                                             .foregroundColor(.white)
                                             .frame(maxWidth: .infinity, minHeight: 32)
-                                            .background(status == .up ? Color.red : Color.green)
+                                            .background(status.color)
                                             .cornerRadius(6)
                                     }
                                 }
@@ -106,7 +99,7 @@ struct DashboardView: View {
                                 Text(formatScore(row.score))
                                     .font(.system(.body, design: .monospaced))
                                     .fontWeight(.semibold)
-                                    .frame(width: 50, alignment: .trailing)
+                                    .frame(width: 45, alignment: .trailing)
                             }
                             .padding(.vertical, 2)
                         }
@@ -114,17 +107,17 @@ struct DashboardView: View {
                 }
                 .listStyle(.insetGrouped)
                 
-                // 3. 统计底栏
+                // 3. 底部统计（区分包含大/小的总涨跌）
                 HStack {
                     HStack(spacing: 4) {
-                        Text("总上涨:")
+                        Text("周上涨和:")
                         Text("\(currentRecord.totalUpCount)")
                             .fontWeight(.bold)
                             .foregroundColor(.red)
                     }
                     Spacer()
                     HStack(spacing: 4) {
-                        Text("总下跌:")
+                        Text("周下跌和:")
                         Text("\(currentRecord.totalDownCount)")
                             .fontWeight(.bold)
                             .foregroundColor(.green)

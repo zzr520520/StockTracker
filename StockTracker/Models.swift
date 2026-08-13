@@ -1,72 +1,67 @@
 import Foundation
+import SwiftUI
 
+// 四种涨跌状态（一大一小）
 enum GridStatus: String, Codable, CaseIterable {
-    case up = "涨"
-    case down = "跌"
+    case bigUp = "大涨"
+    case smallUp = "小涨"
+    case smallDown = "小跌"
+    case bigDown = "大跌"
+    
+    var color: Color {
+        switch self {
+        case .bigUp: return Color(red: 0.85, green: 0.1, blue: 0.1)     // 深红
+        case .smallUp: return Color(red: 1.0, green: 0.5, blue: 0.5)    // 浅红
+        case .smallDown: return Color(red: 0.5, green: 0.85, blue: 0.5) // 浅绿
+        case .bigDown: return Color(red: 0.1, green: 0.6, blue: 0.1)    // 深绿
+        }
+    }
 }
 
+// 单行 5 交易日网格数据
 struct DailyGridRow: Identifiable, Codable {
     var id = UUID()
-    var grid: [GridStatus]
+    var grid: [GridStatus] // 固定 5 列（周一至周五）
     var score: Double
     
-    init(grid: [GridStatus] = Array(repeating: .up, count: 5), score: Double = 0.0) {
+    init(grid: [GridStatus] = Array(repeating: .smallUp, count: 5), score: Double = 0.0) {
         self.grid = grid
         self.score = score
     }
 }
 
-// 每日记录模型（复合主键：日期_股票代码）
+// 每周/每日记录模型
 struct DailyRecord: Identifiable, Codable {
-    // 复合唯一 ID：例如 "2026-08-11_00700" 或 "2026-08-11_GLOBAL"
+    // 复合唯一主键：日期_标注
     var id: String { 
-        let code = stockCode.isEmpty ? "GLOBAL" : stockCode
-        return "\(dateString)_\(code)" 
+        let tag = tagNote.isEmpty ? "DEFAULT" : tagNote
+        return "\(dateString)_\(tag)" 
     }
     
-    var dateString: String
-    var stockCode: String = ""  // 股票代码
-    var stockName: String = ""  // 股票名称
-    var remark: String = ""     // 备注信息
+    var dateString: String // 格式: yyyy-MM-dd
+    var tagNote: String = "" // 顶部右侧标注/股票名称
     var rows: [DailyGridRow]
     
+    // 统计大涨与小涨总数
     var totalUpCount: Int {
-        rows.flatMap { $0.grid }.filter { $0 == .up }.count
+        rows.flatMap { $0.grid }.filter { $0 == .bigUp || $0 == .smallUp }.count
     }
     
+    // 统计大跌与小跌总数
     var totalDownCount: Int {
-        rows.flatMap { $0.grid }.filter { $0 == .down }.count
+        rows.flatMap { $0.grid }.filter { $0 == .bigDown || $0 == .smallDown }.count
     }
 }
 
-// 自选股票模型
-struct StockItem: Identifiable, Codable, Equatable {
-    var id = UUID()
-    var code: String
-    var name: String
-    var isPinned: Bool = false
-}
-
-// 数据持久化管理类
+// 本地离线持久化管理类
 class StorageManager: ObservableObject {
     static let shared = StorageManager()
     
     @Published var records: [String: DailyRecord] = [:]
-    @Published var favoriteStocks: [StockItem] = []
-    
-    private let recordsKey = "SavedDailyRecords_v2"
-    private let stocksKey = "SavedFavoriteStocks_v2"
+    private let recordsKey = "SavedTradingRecords_v3"
     
     init() {
         loadData()
-        if favoriteStocks.isEmpty {
-            favoriteStocks = [
-                StockItem(code: "00700", name: "腾讯控股", isPinned: true),
-                StockItem(code: "600519", name: "贵州茅台", isPinned: false),
-                StockItem(code: "000001", name: "平安银行", isPinned: false)
-            ]
-            saveStocks()
-        }
     }
     
     func saveRecord(_ record: DailyRecord) {
@@ -83,21 +78,10 @@ class StorageManager: ObservableObject {
         }
     }
     
-    func saveStocks() {
-        if let encoded = try? JSONEncoder().encode(favoriteStocks) {
-            UserDefaults.standard.set(encoded, forKey: stocksKey)
-        }
-    }
-    
     private func loadData() {
         if let data = UserDefaults.standard.data(forKey: recordsKey),
            let decoded = try? JSONDecoder().decode([String: DailyRecord].self, from: data) {
             self.records = decoded
-        }
-        
-        if let data = UserDefaults.standard.data(forKey: stocksKey),
-           let decoded = try? JSONDecoder().decode([StockItem].self, from: data) {
-            self.favoriteStocks = decoded
         }
     }
 }

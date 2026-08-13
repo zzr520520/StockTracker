@@ -9,6 +9,7 @@ struct HistoryView: View {
         let all = Array(storage.records.values).sorted { $0.dateString > $1.dateString }
         if isFilteringByDate {
             let formatter = DateFormatter()
+            formatter.locale = Locale(identifier: "zh_Hans_CN")
             formatter.dateFormat = "yyyy-MM-dd"
             let dateStr = formatter.string(from: filterDate)
             return all.filter { $0.dateString == dateStr }
@@ -37,8 +38,8 @@ struct HistoryView: View {
                                 Text(record.dateString)
                                     .font(.headline)
                                 
-                                if !record.stockName.isEmpty {
-                                    Text("[\(record.stockName)]")
+                                if !record.tagNote.isEmpty {
+                                    Text("[\(record.tagNote)]")
                                         .font(.subheadline)
                                         .foregroundColor(.blue)
                                 }
@@ -49,21 +50,14 @@ struct HistoryView: View {
                                     .foregroundColor(.secondary)
                             }
                             
-                            if !record.remark.isEmpty {
-                                Text("备注：\(record.remark)")
-                                    .font(.caption)
-                                    .foregroundColor(.gray)
-                                    .lineLimit(1)
-                            }
-                            
                             // 缩略预览
                             VStack(spacing: 3) {
                                 ForEach(record.rows.prefix(3)) { row in
                                     HStack(spacing: 4) {
                                         ForEach(0..<5, id: \.self) { col in
-                                            let st = col < row.grid.count ? row.grid[col] : .up
+                                            let st = col < row.grid.count ? row.grid[col] : .smallUp
                                             RoundedRectangle(cornerRadius: 2)
-                                                .fill(st == .up ? Color.red : Color.green)
+                                                .fill(st.color)
                                                 .frame(height: 6)
                                         }
                                     }

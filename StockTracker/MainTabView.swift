@@ -5,7 +5,7 @@ struct MainTabView: View {
         TabView {
             DashboardView()
                 .tabItem {
-                    Label("首页看板", systemImage: "chart.grid.5x7.fill")
+                    Label("行情看板", systemImage: "chart.grid.5x7.fill")
                 }
             
             EditRecordView()
@@ -16,11 +16,6 @@ struct MainTabView: View {
             HistoryView()
                 .tabItem {
                     Label("历史记录", systemImage: "clock.arrow.circlepath")
-                }
-            
-            StockFavoritesView()
-                .tabItem {
-                    Label("自选股票", systemImage: "star.fill")
                 }
         }
     }
